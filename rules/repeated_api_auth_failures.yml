@@ -1,0 +1,33 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Repeated API Auth Failures (401/403)
+enabled: Staging
+description: |-
+  ## Goal
+  Detect repeated authentication or authorization failures against the Claude API, which can indicate leaked, revoked or misused credentials.
+
+  ## Strategy
+  Counts `api_error` events with `status_code` 401 or 403 per user and session. `status_code` is a string field. Fires at 3 or more.
+
+  ## Triage and response
+  1. Check whether the user's credentials were recently rotated or revoked.
+  2. Look for the same credentials being used from unexpected sessions or terminals.
+  3. If misuse is suspected, revoke the credentials and review the account's recent activity.
+
+  ## Notes and limitations
+  * Field set is documented in the Cowork monitoring docs but not yet seen in a real log sample.
+  * The 3-error threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_error
+  log.attributes.status_code:("401" or "403")
+  | stats count() as errors by log.attributes.user.id, log.attributes.session.id
+  | where errors >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- correlation.agent_off_rails
+- tactics.ta0006.credential_access

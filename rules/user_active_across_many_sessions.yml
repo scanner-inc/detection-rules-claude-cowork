@@ -1,0 +1,30 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - User Active Across Many Sessions
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a single user active in many distinct sessions within an hour, which can indicate shared or stolen credentials, or automation running under a personal account.
+
+  ## Strategy
+  Per user, counts distinct `session.id` and `terminal.type` values. Fires at 5 or more distinct sessions. The distinct terminal count is included in the alert for context.
+
+  ## Triage and response
+  1. Look at the terminal types and session start times.
+  2. Many sessions across many terminal types is more suspicious than many sessions in one terminal type.
+  3. Confirm with the user whether they run parallel sessions.
+
+  ## Notes and limitations
+  * Power users running several concurrent sessions can hit the 5-session threshold. Tune per environment.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:*
+  | stats countdistinct(log.attributes.session.id) as distinct_sessions, countdistinct(log.attributes.terminal.type) as distinct_terminals by log.attributes.user.id
+  | where distinct_sessions >= 5
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0001.initial_access
+- techniques.t1078.valid_accounts

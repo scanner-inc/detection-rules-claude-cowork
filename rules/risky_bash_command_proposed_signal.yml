@@ -1,0 +1,30 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Risky Bash Command Proposed (Signal)
+enabled: Staging
+description: |-
+  ## Goal
+  Signal version of the risky Bash command rule, feeding the composite correlation.
+
+  ## Strategy
+  Same filter as the alert version. It has the same threshold (any match); it exists as a separate rule so the composite counts it once without double-counting the alert.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude Cowork - Risky Bash Command Proposed`, which uses a stricter threshold.
+
+  ## Values you must supply
+  * The risky command list, same as the alert version.
+severity: Informational
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  log.attributes.tool_parameters:(curl or wget or base64 or chmod)
+  | stats count() as risky_commands by log.attributes.user.id, log.attributes.session.id
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+tags:
+- source.claude_cowork
+- signal
+- correlation.composite_critical
+- tactics.ta0002.execution

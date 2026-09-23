@@ -1,0 +1,31 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - High Tool Call Volume in Session
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a single session executing an unusually large number of tool calls in an hour, a sign of runaway automation or abuse.
+
+  ## Strategy
+  Counts `tool_result` events per user and session. Fires at 100 or more in the window.
+
+  ## Triage and response
+  1. Check whether this session is a known long-running batch job.
+  2. Look at which tools dominate the volume and whether the commands repeat.
+  3. If unexpected, review the session's prompts and consider stopping it.
+
+  ## Notes and limitations
+  * This is a flat count per window, not a comparison with the session's own history. Naturally heavy sessions will alert every hour they run.
+  * The 100-per-hour threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_result
+  | stats count() as tool_calls by log.attributes.user.id, log.attributes.session.id
+  | where tool_calls >= 100
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0040.impact

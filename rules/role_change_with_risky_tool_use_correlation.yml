@@ -1,0 +1,32 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Role Change with Risky Tool Use (Correlation)
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a role or permission change followed, in the same hour, by high-risk tool use from the same person.
+
+  ## Strategy
+  Queries `_detections` for alerts tagged `correlation.role_change_risky_tool` and fires when both signal rules hit the same `entity_email`.
+
+  ## Triage and response
+  1. Identify who made the role change and whether it was approved.
+  2. Review the high-risk activity that followed.
+  3. Revert unapproved role changes and review the account.
+
+  ## Notes and limitations
+  * Assumes the Compliance API's `actor.email_address` and the Cowork telemetry's `user.email` refer to the same person. Confirm this once both sources are indexed.
+  * Co-occurrence within the hour, not strict ordering. Check `detected_in_time_range` on each contributing alert to see the order.
+severity: High
+query_text: |-
+  @index=_detections
+  tags[*]:correlation.role_change_risky_tool
+  | stats countdistinct(name) as rule_count by results_table.rows[0].entity_email
+  | where rule_count >= 2
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- correlation
+- tactics.ta0004.privilege_escalation

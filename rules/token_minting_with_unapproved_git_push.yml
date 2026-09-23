@@ -1,0 +1,43 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Token Minting with Unapproved Git Push
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a session that both mints a token or credential and pushes to an unapproved git remote, a supply-chain compromise pattern.
+
+  ## Strategy
+  In one query over Bash `tool_decision` events, flags token-minting commands and unapproved pushes (same logic as `Claude Cowork - Git Push to Unapproved Remote`), and fires when both occur in the same session within the window.
+
+  ## Triage and response
+  1. Identify the token that was minted and revoke it.
+  2. Identify the remote and what was pushed.
+  3. Treat as a likely supply-chain incident until proven otherwise.
+
+  ## Values you must supply
+  * Token-minting command patterns. The regex `gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create` is a starting guess; replace it with the commands your agents actually use to obtain tokens.
+  * Approved git remote aliases (`origin`, `upstream` in `push (origin|upstream)`); keep in sync with `Claude Cowork - Git Push to Unapproved Remote`.
+
+  ## Notes and limitations
+  * Co-occurrence in the same session and window, not strict ordering.
+  * The `cmd = coalesce(regex.extract(...))` step copies `tool_parameters` into a guaranteed non-null string; `regex.is_match` rejects possibly-null input.
+  * Only covers token minting through Bash; minting through an MCP tool (for example a GitHub MCP server) is not covered.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), "")
+  | eval is_mint = if(regex.is_match(cmd, /gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create/), 1, 0)
+  | eval is_bad_push = if(regex.is_match(cmd, /git (push|remote add|remote set-url)/) and not regex.is_match(cmd, /push (origin|upstream)/), 1, 0)
+  | stats sum(is_mint) as mints, sum(is_bad_push) as bad_pushes by log.attributes.user.id, log.attributes.session.id
+  | where mints >= 1 and bad_pushes >= 1
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- correlation.composite_critical
+- tactics.ta0010.exfiltration
+- techniques.t1195.supply_chain_compromise

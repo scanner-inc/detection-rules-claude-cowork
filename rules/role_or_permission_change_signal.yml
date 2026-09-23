@@ -1,0 +1,27 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Role or Permission Change (Signal)
+enabled: Staging
+description: |-
+  ## Goal
+  Signal: a role or permission change for a user in the Claude Compliance API activity feed.
+
+  ## Strategy
+  Matches role and RBAC activity types, grouped by actor and renamed to `entity_email`.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude Cowork - Role Change with Risky Tool Use (Correlation)`.
+
+  ## Notes and limitations
+  * Reads the Claude Compliance API activity feed. The activity `type` values are documented; other fields such as the old and new role are not, so the alert shows that a role changed and who changed it, not what changed.
+severity: Informational
+query_text: |-
+  type:("claude_user_role_updated" or "rbac_role_assigned" or "rbac_role_created" or "rbac_role_deleted" or "rbac_role_permission_added" or "rbac_role_permission_removed" or "rbac_role_unassigned" or "rbac_role_updated" or "rbac_role_grant_updated")
+  | stats count() as role_changes by actor.email_address, actor.user_id
+  | rename(actor.email_address as entity_email)
+time_range_s: 3600
+run_frequency_s: 3600
+tags:
+- source.claude_cowork
+- signal
+- correlation.role_change_risky_tool
+- tactics.ta0004.privilege_escalation

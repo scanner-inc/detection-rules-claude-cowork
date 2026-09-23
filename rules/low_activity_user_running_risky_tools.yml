@@ -1,0 +1,34 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Low-Activity User Running Risky Tools
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a user who does almost nothing in the window except run a risky tool, a pattern consistent with stolen or leaked credentials being used directly.
+
+  ## Strategy
+  Per user, counts all tool events and the Bash/Write ones among them. Fires when a user has 5 or fewer tool events in the window and at least one is risky. Re-alerts at most once a day per user.
+
+  ## Triage and response
+  1. Check whether the user is new, or has been inactive for a long time.
+  2. Review exactly what the risky command did.
+  3. Confirm with the user; if they did not do it, revoke their credentials.
+
+  ## Notes and limitations
+  * This is a volume proxy. It does not prove the risky call came first or that no ramp-up happened, only that total activity was very low.
+  * Evaluated across all of the user's sessions in the window combined.
+  * Thresholds are starting points.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:(tool_decision or tool_result)
+  | eval is_risky = if(log.attributes.tool_name == "Bash" or log.attributes.tool_name == "Write", 1, 0)
+  | stats count() as total_tool_events, sum(is_risky) as risky_events by log.attributes.user.id
+  | where total_tool_events <= 5 and risky_events >= 1
+time_range_s: 3600
+run_frequency_s: 3600
+dedup_window_s: 86400
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0001.initial_access
+- techniques.t1078.valid_accounts

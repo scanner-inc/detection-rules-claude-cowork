@@ -1,0 +1,34 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - SSRF or Injection Marker in Tool Arguments
+enabled: Staging
+description: |-
+  ## Goal
+  Detect tool calls whose arguments contain known SSRF or injection payload markers, across any tool.
+
+  ## Strategy
+  Matches `tool_decision` events whose `tool_parameters` contain one of your marker strings. Not limited to Bash, since payloads can target any tool (WebFetch, MCP database tools and so on). Uses `tool_decision` so rejected attempts are also caught.
+
+  ## Triage and response
+  1. Read the full tool arguments and identify the target of the payload.
+  2. Check whether the call was accepted and what the matching `tool_result` returned.
+  3. Review the prompts that led to the call for signs of prompt injection.
+
+  ## Values you must supply
+  * SSRF/injection marker strings. Replace `<marker-1>` and `<marker-2>` with the patterns you want to catch. There is no default list; this rule cannot fire until you add values.
+
+  ## Notes and limitations
+  * Substring match against a JSON string, not a parser.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_parameters:("<marker-1>" or "<marker-2>")
+  | stats count() as hits by log.attributes.user.id, log.attributes.session.id
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0001.initial_access
+- techniques.t1190.exploit_public_facing_application

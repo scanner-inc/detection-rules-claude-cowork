@@ -1,0 +1,28 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Repeated Normalized Bash Command (Signal)
+enabled: Staging
+description: |-
+  ## Goal
+  Signal version of the repeated normalized command rule.
+
+  ## Strategy
+  Same query as the alert version, with the threshold lowered to 5 repeats.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude Cowork - Repeated Normalized Bash Command`, which uses a stricter threshold.
+severity: Informational
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"bash_command":\s*"(\S+\s+\S+)/, 1), log.attributes.tool_parameters)
+  | stats count() as reps by norm_cmd, log.attributes.session.id, log.attributes.user.id
+  | where reps >= 5
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+tags:
+- source.claude_cowork
+- signal
+- correlation.composite_critical
+- tactics.ta0003.persistence

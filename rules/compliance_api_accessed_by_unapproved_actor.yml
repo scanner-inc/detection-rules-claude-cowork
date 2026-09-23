@@ -1,0 +1,32 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Compliance API Accessed by Unapproved Actor
+enabled: Staging
+description: |-
+  ## Goal
+  Detect the Claude Compliance API being used by someone outside the set of people and service identities expected to use it. The Compliance API can export session transcripts and other sensitive data.
+
+  ## Strategy
+  Matches `compliance_api_accessed` activity (logged for every Compliance API request) where the actor is not on the approved list.
+
+  ## Triage and response
+  1. Identify the actor and whether they have a reason to use the Compliance API.
+  2. Check what else the actor did around the same time.
+  3. If unauthorized, revoke the API key used.
+
+  ## Values you must supply
+  * Approved Compliance API users. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of your security/compliance staff and audit automation. Until you do, every access will match.
+
+  ## Notes and limitations
+  * The activity feed does not record which endpoint was called, so this flags any Compliance API access by an unapproved actor, not specifically transcript exports.
+severity: High
+query_text: |-
+  type:compliance_api_accessed
+  not actor.email_address:("<approved-compliance-user-1>" or "<approved-compliance-user-2>")
+  | stats count() as api_pulls by actor.email_address, actor.user_id
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0009.collection

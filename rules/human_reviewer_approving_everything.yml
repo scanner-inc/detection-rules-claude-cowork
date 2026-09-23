@@ -1,0 +1,38 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Human Reviewer Approving Everything
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a human reviewer approving essentially every high-risk tool call in a long session, a sign that review has become rubber-stamping.
+
+  ## Strategy
+  Excludes auto-accepted decisions (`source` = `config`), so only human decisions count. Fires when a session has at least 20 human decisions on high-risk tools and fewer than 5% were rejected. Fully autonomous sessions produce no rows and cannot trigger this rule.
+
+  ## Triage and response
+  1. Review what was approved.
+  2. Talk with the user about review practices.
+  3. If anything approved was harmful, treat it as an incident.
+
+  ## Values you must supply
+  * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`).
+
+  ## Notes and limitations
+  * Treats every `source` value other than `config` as a human decision. Only `config` has been confirmed in real samples.
+  * An advisory finding; a careful reviewer who agrees with everything is not malicious.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:(Bash or Write or Edit or NotebookEdit)
+  not log.attributes.source:"config"
+  | eval is_reject = if(log.attributes.decision == "reject", 1, 0)
+  | stats sum(is_reject) as rejects, count() as total by log.attributes.user.id, log.attributes.session.id
+  | eval reject_ratio = rejects / total
+  | where total >= 20 and reject_ratio < 0.05
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0005.defense_evasion

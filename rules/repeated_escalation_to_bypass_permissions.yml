@@ -1,0 +1,35 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Repeated Escalation to bypassPermissions
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a session repeatedly switching into `bypassPermissions`, the permission mode that skips all confirmation prompts.
+
+  ## Strategy
+  Counts `permission_mode_changed` events whose `to_mode` is `bypassPermissions` per session. Fires at 3 or more in the window. A single deliberate switch does not fire.
+
+  ## Triage and response
+  1. Check who switched modes and what ran while in `bypassPermissions`.
+  2. Repeated flapping between modes is a strong sign of an agent or user evading review.
+  3. Stop the session and review its activity.
+
+  ## Notes and limitations
+  * Requires unredacted Claude Cowork/Claude Code telemetry. This rule reads `log.attributes.to_mode`. Scanner's own default ingestion redaction strips these fields, so either relax that redaction for them or make sure your own pipeline keeps them. Otherwise this rule will not fire.
+  * If you cannot keep `to_mode`, a weaker fallback is to count all `permission_mode_changed` events per session (for example 5 or more), which catches flapping but not which mode was reached.
+severity: High
+query_text: |-
+  log.attributes.event.name:permission_mode_changed
+  log.attributes.to_mode:bypassPermissions
+  | stats count() as escalations by log.attributes.user.id, log.attributes.session.id
+  | where escalations >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- correlation.composite_critical
+- tactics.ta0004.privilege_escalation
+- tactics.ta0005.defense_evasion

@@ -1,0 +1,32 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - API Rate Limit Storm (429)
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a burst of rate-limit errors, which can indicate runaway automation or an attempt to drain API budget.
+
+  ## Strategy
+  Counts `api_error` events with `status_code` "429" per user and session. Fires at 10 or more.
+
+  ## Triage and response
+  1. Identify what the session was doing when throttled (tool volume, repeated prompts).
+  2. Check API cost for the session in `api_request` events (`cost_usd`).
+  3. Stop the session if the load is unexpected.
+
+  ## Notes and limitations
+  * Field set is documented in the Cowork monitoring docs but not yet seen in a real log sample.
+  * The 10-error threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_error
+  log.attributes.status_code:"429"
+  | stats count() as throttles by log.attributes.user.id, log.attributes.session.id
+  | where throttles >= 10
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0040.impact
+- techniques.t1496.resource_hijacking

@@ -1,0 +1,36 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Git Push to Unapproved Remote
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude pushing code to, or adding, a git remote other than your approved remote names, a common exfiltration and supply-chain step.
+
+  ## Strategy
+  Matches Bash `tool_decision` events whose command contains `git push`, `git remote add` or `git remote set-url`, excluding pushes to the approved remote aliases. The remote has to be read from the command text; no log field records it.
+
+  ## Triage and response
+  1. Read the full command in `tool_parameters` and identify the destination remote.
+  2. Check the repository's remote configuration for newly added or re-pointed remotes.
+  3. If the push was unauthorized, revoke any credentials the session had and review what was pushed.
+
+  ## Values you must supply
+  * Approved git remote aliases. The query ships with `origin` and `upstream` in the `not ... ("push origin" or "push upstream")` line; replace them with your own.
+
+  ## Notes and limitations
+  * This is a heuristic on remote alias names, not a git argument parser. A legitimate remote with an unusual alias will fire, and an attacker who re-points `origin` is only caught by the `remote set-url` pattern.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  log.attributes.tool_parameters:("git push" or "git remote add" or "git remote set-url")
+  not log.attributes.tool_parameters:("push origin" or "push upstream")
+  | stats count() as git_pushes by log.attributes.user.id, log.attributes.session.id
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0010.exfiltration
+- techniques.t1567.exfiltration_over_web_service

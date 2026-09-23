@@ -1,0 +1,35 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Auto-Accepted File Overwrite Tools
+enabled: Staging
+description: |-
+  ## Goal
+  Detect sessions where file-modifying tools (Write, Edit, NotebookEdit) were almost always approved automatically, with no human review.
+
+  ## Strategy
+  Same shape as the high-risk auto-accept rule, scoped to file-modifying tools with a lower volume floor: at least 5 calls, more than 95% auto-accepted.
+
+  ## Triage and response
+  1. Check whether the session was expected to run unattended.
+  2. Review which files were changed.
+  3. If unexpected, review the session's permission configuration.
+
+  ## Notes and limitations
+  * Assumes interactive, human-reviewed usage is the norm.
+  * Deletion through Bash (`rm` and similar) is not covered.
+  * Often fires together with `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools`; that is expected.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:(Write or Edit or NotebookEdit)
+  log.attributes.decision:accept
+  | eval is_auto = if(log.attributes.source == "config", 1, 0)
+  | stats sum(is_auto) as auto_accepts, count() as total by log.attributes.user.id, log.attributes.session.id
+  | eval auto_ratio = auto_accepts / total
+  | where total >= 5 and auto_ratio > 0.95
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0040.impact

@@ -1,0 +1,30 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Unapproved Model Used
+enabled: Staging
+description: |-
+  ## Goal
+  Detect API requests against a model that is not on your organization's approved list.
+
+  ## Strategy
+  Matches `api_request` events whose `model` is not in the approved list, grouped by user, session and model. Any single request counts. Checked every 5 minutes, and re-alerts at most hourly per group.
+
+  ## Triage and response
+  1. Confirm which model was used and by whom.
+  2. Check whether the model is new and simply missing from your approved list.
+  3. If not approved, follow your governance process with the user.
+
+  ## Values you must supply
+  * Approved models. Replace `<approved-model-1>` and `<approved-model-2>` with your approved model IDs. Revisit when new models are released. Until you do, every request will match.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_request
+  not log.attributes.model:("<approved-model-1>" or "<approved-model-2>")
+  | stats count() as requests by log.attributes.user.id, log.attributes.session.id, log.attributes.model
+time_range_s: 300
+run_frequency_s: 300
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0005.defense_evasion

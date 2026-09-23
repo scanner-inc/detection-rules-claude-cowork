@@ -1,0 +1,36 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude Cowork - Risky Bash Command Proposed
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude proposing shell commands commonly used for download, encoding or permission changes (curl, wget, base64, chmod).
+
+  ## Strategy
+  Matches `tool_decision` events for the Bash tool whose `tool_parameters` contain one of the risky command names. Uses `tool_decision` so the command is flagged even if the user rejected it.
+
+  ## Triage and response
+  1. Read the full command in `tool_parameters` and whether it was accepted or rejected (`decision`).
+  2. Check the destination of any download and whether the downloaded content was executed.
+  3. Correlate with other activity in the same session.
+
+  ## Values you must supply
+  * The risky command list (`curl`, `wget`, `base64`, `chmod`). Add or remove commands for your environment.
+
+  ## Notes and limitations
+  * This is a token match against a JSON string, not a command parser. Expect some noise from legitimate developer use; exclude known automation identities.
+  * Credential file paths and the cloud metadata IP are covered separately by `Claude Cowork - Credential File or Cloud Metadata Access`.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  log.attributes.tool_parameters:(curl or wget or base64 or chmod)
+  | stats count() as risky_commands by log.attributes.user.id, log.attributes.session.id
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude_cowork
+- tactics.ta0002.execution
+- techniques.t1059.command_and_scripting_interpreter
