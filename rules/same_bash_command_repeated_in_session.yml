@@ -34,4 +34,5 @@ tags:
 - source.claude
 - product.claude_cowork
 - product.claude_code
-- tactics.ta0003.persistence
+- tactics.ta0002.execution
+- techniques.t1059.command_and_scripting_interpreter

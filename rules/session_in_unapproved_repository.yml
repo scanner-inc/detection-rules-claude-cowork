@@ -33,4 +33,3 @@ tags:
 - source.claude
 - product.claude_code
 - tactics.ta0010.exfiltration
-- techniques.t1567.exfiltration_over_web_service

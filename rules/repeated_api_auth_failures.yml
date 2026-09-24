@@ -33,3 +33,4 @@ tags:
 - product.claude_code
 - correlation.agent_off_rails
 - tactics.ta0006.credential_access
+- techniques.t1078.valid_accounts

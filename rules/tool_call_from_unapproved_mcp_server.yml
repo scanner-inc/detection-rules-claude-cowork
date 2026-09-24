@@ -37,3 +37,4 @@ tags:
 - correlation.agent_off_rails
 - correlation.composite_critical
 - tactics.ta0003.persistence
+- techniques.t1195.supply_chain_compromise

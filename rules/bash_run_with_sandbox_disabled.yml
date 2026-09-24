@@ -35,4 +35,4 @@ tags:
 - source.claude
 - product.claude_code
 - tactics.ta0005.defense_evasion
-- techniques.t1562.impair_defenses
+- techniques.t1562.001.disable_or_modify_tools
