@@ -1,0 +1,38 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Unapproved MCP Server Connected
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude Code connecting to an MCP server that is not on your approved list.
+
+  ## Strategy
+  Matches `mcp_server_connection` events with `status` = `connected` whose `server_name` is not approved, grouped by user, session, server and transport.
+
+  ## Triage and response
+  1. Identify the server, its transport (`stdio`, `http`, `sse`) and scope (`server_scope`), and whether it came from a plugin (`is_plugin`).
+  2. Ask the user where the server came from; project-scoped servers can arrive with a cloned repository's `.mcp.json`.
+  3. If unapproved, remove it and review what its tools could reach.
+
+  ## Values you should supply
+  * Approved MCP server names. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names as they appear in `server_name`. Until you do, every connection will match.
+
+  ## Notes and limitations
+  * Claude Code only. Cowork's `mcp_server_connection` events carry no server name; for Cowork use `Claude - Tool Call from Unapproved MCP Server`.
+  * Server names are chosen by whoever configures the server, so an attacker can reuse an approved name. Pair with `Claude - Unapproved Plugin Loaded`.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:mcp_server_connection
+  log.attributes.status:connected
+  not log.attributes.server_name:("<approved-mcp-server-1>" or "<approved-mcp-server-2>")
+  | stats count() as connections by log.attributes.user.id, log.attributes.session.id, log.attributes.server_name, log.attributes.transport_type, log.attributes.server_scope
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 86400
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0003.persistence
+- techniques.t1195.supply_chain_compromise

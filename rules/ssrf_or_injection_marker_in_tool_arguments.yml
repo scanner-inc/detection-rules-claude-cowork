@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - SSRF or Injection Marker in Tool Arguments
+name: Claude - SSRF or Injection Marker in Tool Arguments
 enabled: Staging
 description: |-
   ## Goal
@@ -29,6 +29,8 @@ dedup_window_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0001.initial_access
 - techniques.t1190.exploit_public_facing_application

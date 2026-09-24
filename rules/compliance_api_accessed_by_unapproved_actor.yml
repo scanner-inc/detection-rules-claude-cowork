@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Compliance API Accessed by Unapproved Actor
+name: Claude - Compliance API Accessed by Unapproved Actor
 enabled: Staging
 description: |-
   ## Goal
@@ -28,5 +28,7 @@ run_frequency_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
 - tactics.ta0009.collection
+- techniques.t1213.data_from_information_repositories

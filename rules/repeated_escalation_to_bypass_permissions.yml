@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Repeated Escalation to bypassPermissions
+name: Claude - Repeated Escalation to bypassPermissions
 enabled: Staging
 description: |-
   ## Goal
@@ -29,7 +29,9 @@ dedup_window_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
 - correlation.composite_critical
 - tactics.ta0004.privilege_escalation
 - tactics.ta0005.defense_evasion
+- techniques.t1562.001.disable_or_modify_tools

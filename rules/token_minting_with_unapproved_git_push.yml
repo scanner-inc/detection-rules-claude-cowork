@@ -1,12 +1,12 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Token Minting with Unapproved Git Push
+name: Claude - Token Minting with Unapproved Git Push
 enabled: Staging
 description: |-
   ## Goal
   Detect a session that both mints a token or credential and pushes to an unapproved git remote, a supply-chain compromise pattern.
 
   ## Strategy
-  In one query over Bash `tool_decision` events, flags token-minting commands and unapproved pushes (same logic as `Claude Cowork - Git Push to Unapproved Remote`), and fires when both occur in the same session within the window.
+  In one query over Bash `tool_decision` events, flags token-minting commands and unapproved pushes (same logic as `Claude - Git Push to Unapproved Remote`), and fires when both occur in the same session within the window.
 
   ## Triage and response
   1. Identify the token that was minted and revoke it.
@@ -15,7 +15,7 @@ description: |-
 
   ## Values you should supply
   * Token-minting command patterns. The regex `gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create` is a starting guess; replace it with the commands your agents actually use to obtain tokens.
-  * Approved git remote aliases (`origin`, `upstream` in `push (origin|upstream)`); keep in sync with `Claude Cowork - Git Push to Unapproved Remote`.
+  * Approved git remote aliases (`origin`, `upstream` in `push (origin|upstream)`); keep in sync with `Claude - Git Push to Unapproved Remote`.
 
   ## Notes and limitations
   * Co-occurrence in the same session and window, not strict ordering.
@@ -37,7 +37,9 @@ dedup_window_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - correlation.composite_critical
 - tactics.ta0010.exfiltration
 - techniques.t1195.supply_chain_compromise

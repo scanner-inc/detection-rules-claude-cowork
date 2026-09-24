@@ -1,0 +1,42 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Write to Sensitive or Persistence Path
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude writing or editing a file in a location commonly used for persistence or access: SSH keys and `authorized_keys`, shell startup files, git hooks, cron, launch agents, systemd units and `/etc`.
+
+  ## Strategy
+  Extracts `file_path` (or `notebook_path`) from the `tool_input` of successful Write, Edit and NotebookEdit `tool_result` events and matches it against a path regex.
+
+  ## Triage and response
+  1. Read the path and, if logged, the written content in `tool_input`.
+  2. For `authorized_keys`, identify the key that was added and remove it if it is not the user's.
+  3. Check what the user asked for in the session's prompts; a persistence write the user did not ask for is a strong sign of prompt injection.
+
+  ## Values you should supply
+  * The path regex. It ships with common Linux and macOS persistence and access locations; add others you care about (for example your own config-management paths).
+
+  ## Notes and limitations
+  * In Claude Code, `tool_input` and `tool_parameters` are only logged when `OTEL_LOG_TOOL_DETAILS=1` is set. Without it this rule cannot fire.
+  * Claude Code's own guardrails block some of these writes (in testing, `.bashrc` and git hook writes were refused). A blocked write produces no `tool_result`, so the rule only sees writes that went through.
+  * File changes made through Bash (`echo >> ~/.bashrc`, `cp`) are not covered.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_result
+  log.attributes.tool_name:(Write or Edit or NotebookEdit)
+  | eval path = coalesce(regex.extract(log.attributes.tool_input, /"(?:file_path|notebook_path)":\s*"([^"]*)"/, 1), "")
+  | eval is_sensitive = if(regex.is_match(path, /\/\.ssh\/|\/\.(bashrc|bash_profile|bash_login|profile|zshrc|zprofile|zshenv|zlogin)$|\/\.git\/hooks\/|^\/etc\/|\/cron|\/LaunchAgents\/|\/LaunchDaemons\/|\/\.config\/autostart\/|\/systemd\//), 1, 0)
+  | where is_sensitive = 1
+  | stats count() as writes by log.attributes.user.id, log.attributes.session.id, log.attributes.tool_name, path
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0003.persistence
+- techniques.t1098.004.ssh_authorized_keys
+- techniques.t1546.004.unix_shell_configuration_modification

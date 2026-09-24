@@ -1,10 +1,7 @@
-# Scanner Detection Rules - Claude Cowork
+# Scanner Detection Rules - Claude Cowork and Claude Code
 
-Scanner detection rules for the OpenTelemetry logs emitted by Claude Cowork,
-plus three rules for the Claude Compliance API activity feed.
-
-Claude Code emits similarly named events, but these rules have not been
-validated against Claude Code logs.
+Scanner detection rules for the OpenTelemetry logs emitted by Claude Cowork
+and Claude Code, plus three rules for the Claude Compliance API activity feed.
 
 The pack has two purposes:
 
@@ -21,6 +18,48 @@ The pack has two purposes:
 All rules ship with `enabled: Staging`. Watch them in `_detections` for a few
 days, tune thresholds and fill in your own values, then switch them to
 `Active`.
+
+---
+
+## Claude Cowork and Claude Code
+
+Claude Cowork and Claude Code emit the same OpenTelemetry event structure
+(`tool_decision`, `tool_result`, `api_request`, `plugin_loaded` and so on), so
+**most rules work on both products unchanged**. A few rules read fields that
+only one product records.
+
+Every rule carries the tag `source.claude` and one or both product tags:
+
+| Tag | Meaning | Rules |
+|---|---|---|
+| `product.claude_cowork` + `product.claude_code` | Works on both products | 32 |
+| `product.claude_cowork` only | Reads Cowork-only fields, or the Claude Compliance API feed | 7 |
+| `product.claude_code` only | Reads Claude Code-only fields (git branch and repository, file paths, MCP server names, the Bash sandbox flag) | 6 |
+
+The product each rule applies to is also shown in the [All rules](#all-rules)
+table. If you only run one product, you can disable the rules tagged only for
+the other.
+
+The rules do not filter by product. If you want to scope a rule to one
+product, or tell the two apart while triaging, use
+`resource.attributes.service.name`: it is `cowork` for Claude Cowork and
+`claude-code` for Claude Code.
+
+### Claude Code telemetry settings
+
+Claude Code leaves some telemetry detail off by default. Set these for the
+rules that need them:
+
+| Setting | Needed by |
+|---|---|
+| `CLAUDE_CODE_ENABLE_TELEMETRY=1` | Every rule (turns on OpenTelemetry export) |
+| `OTEL_LOG_TOOL_DETAILS=1` | Any rule that reads commands or file paths (`tool_parameters`, `tool_input`), `Claude - Agent Committed to Protected Branch` (the branch is logged only with tool details), and MCP server names |
+| `OTEL_METRICS_INCLUDE_REPOSITORY=true` | `Claude - Session in Unapproved Repository` (adds `vcs.owner.name` and `vcs.repository.name`) |
+
+The git branch and repository fields need Claude Code v2.1.269 or later.
+Without `OTEL_LOG_TOOL_DETAILS=1`, rules that match commands or file paths
+cannot fire. The easiest way to set these for everyone is the `env` block of
+Claude Code's managed settings.
 
 ---
 
@@ -75,8 +114,8 @@ once as a signal with a looser one. For example:
 
 | Rule | Threshold | Notifies? | Feeds the composite? |
 |---|---|---|---|
-| `Claude Cowork - High Tool Call Volume in Session` | 100 tool calls/hour | Yes (Medium) | No |
-| `Claude Cowork - High Tool Call Volume in Session (Signal)` | 50 tool calls/hour | No | Yes |
+| `Claude - High Tool Call Volume in Session` | 100 tool calls/hour | Yes (Medium) | No |
+| `Claude - High Tool Call Volume in Session (Signal)` | 50 tool calls/hour | No | Yes |
 
 The pairing lets you keep the standalone alert, which is useful day to day,
 and still give the composite a more sensitive version of the same behavior.
@@ -85,16 +124,16 @@ distinct rule names, so if both versions were tagged, one behavior would count
 twice. Because the signal's threshold is lower, it always fires whenever the
 alert does, so the composite never misses it.
 
-A few strong alerts (for example `Claude Cowork - Credential File or Cloud
-Metadata Access`) have no signal sibling. They notify on their own **and** are
-tagged directly into the composite.
+A few strong alerts (for example `Claude - Credential File or Cloud Metadata
+Access`) have no signal sibling. They notify on their own **and** are tagged
+directly into the composite.
 
 ---
 
 ## The composite: Multi-Stage Agent Compromise
 
-`Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation)` fires
-when **5 or more different contributing rules** hit the same `user.id` within a
+`Claude - Multi-Stage Agent Compromise (Critical Correlation)` fires when
+**5 or more different contributing rules** hit the same `user.id` within a
 rolling 24 hours. It is checked hourly and pages at most once a day per user.
 
 It is modeled on the Hugging Face incident, where an autonomous agent ran for
@@ -104,21 +143,21 @@ self-respawning pod fleet, minted tokens and pushed to repositories. No single
 action was damning, but the combination was. Each contributor maps to a stage
 of that attack:
 
-| Contributing rule | Kind | Attack stage |
-|---|---|---|
-| `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools (Signal)` | Signal | No human in the loop |
-| `Claude Cowork - Human Reviewer Approving Everything (Signal)` | Signal | Review exists but isn't really reviewing |
-| `Claude Cowork - High Tool Call Volume in Session (Signal)` | Signal | Sustained machine-speed activity |
-| `Claude Cowork - User Active Across Many Sessions (Signal)` | Signal | Parallel sessions / fan-out |
-| `Claude Cowork - Risky Bash Command Proposed (Signal)` | Signal | Reconnaissance and tooling download |
-| `Claude Cowork - Repeated Tool Execution Failures (Signal)` | Signal | Probing restricted resources |
-| `Claude Cowork - Repeated API Auth Failures (401/403) (Signal)` | Signal | Credential misuse |
-| `Claude Cowork - Same Bash Command Repeated in Session (Signal)` | Signal | Device enrollment / pod fleet fan-out |
-| `Claude Cowork - Repeated Calls to Unapproved Domain (Signal)` | Signal | Command and control over public services |
-| `Claude Cowork - Tool Call from Unapproved MCP Server` | Alert | Shadow tooling |
-| `Claude Cowork - Credential File or Cloud Metadata Access` | Alert | Credential access |
-| `Claude Cowork - Token Minting with Unapproved Git Push` | Alert | Token minting and supply-chain compromise |
-| `Claude Cowork - Repeated Escalation to bypassPermissions` | Alert | Defense evasion |
+| Contributing rule | Kind | Products | Attack stage |
+|---|---|---|---|
+| `Claude - High Auto-Accept Ratio on High-Risk Tools (Signal)` | Signal | Both | No human in the loop |
+| `Claude - Human Reviewer Approving Everything (Signal)` | Signal | Both | Review exists but isn't really reviewing |
+| `Claude - High Tool Call Volume in Session (Signal)` | Signal | Both | Sustained machine-speed activity |
+| `Claude - User Active Across Many Sessions (Signal)` | Signal | Both | Parallel sessions / fan-out |
+| `Claude - Risky Bash Command Proposed (Signal)` | Signal | Both | Reconnaissance and tooling download |
+| `Claude - Repeated Tool Execution Failures (Signal)` | Signal | Both | Probing restricted resources |
+| `Claude - Repeated API Auth Failures (401/403) (Signal)` | Signal | Both | Credential misuse |
+| `Claude - Same Bash Command Repeated in Session (Signal)` | Signal | Both | Device enrollment / pod fleet fan-out |
+| `Claude - Repeated Calls to Unapproved Domain (Signal)` | Signal | Both | Command and control over public services |
+| `Claude - Tool Call from Unapproved MCP Server` | Alert | Cowork | Shadow tooling |
+| `Claude - Credential File or Cloud Metadata Access` | Alert | Both | Credential access |
+| `Claude - Token Minting with Unapproved Git Push` | Alert | Both | Token minting and supply-chain compromise |
+| `Claude - Repeated Escalation to bypassPermissions` | Alert | Cowork | Defense evasion |
 
 **Adding your own rule to the composite.** Any rule can count toward this
 alert if it does two things:
@@ -129,16 +168,18 @@ alert if it does two things:
    The composite counts rules per user and expects the user in a column named
    `entity_user_id`.
 
-Adding a rule this way makes the composite more sensitive, so you may want to
-raise its threshold from 5.
+The Claude Code rules already end with that `rename` line, so strong ones such
+as `Claude - Read Tool Opened Credential File` or `Claude - Write to Sensitive
+or Persistence Path` only need the tag. Adding a rule makes the composite more
+sensitive, so you may want to raise its threshold from 5.
 
 ### Other correlations in this pack
 
 | Correlation | Fires when | Contributors |
 |---|---|---|
-| `Claude Cowork - Agent Off the Rails (Correlation)` | 2+ of these alerts on the same user within an hour | `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools`, `Claude Cowork - Repeated Tool Execution Failures`, `Claude Cowork - Tool Call from Unapproved MCP Server`, `Claude Cowork - Repeated API Auth Failures (401/403)` |
-| `Claude Cowork - Unapproved IP with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude Cowork - Compliance API Activity from Unapproved IP (Signal)`, `Claude Cowork - Accepted High-Risk Tool Calls (Signal)` |
-| `Claude Cowork - Role Change with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude Cowork - Accepted High-Risk Tool Calls (Signal)`, `Claude Cowork - Role or Permission Change (Signal)` |
+| `Claude - Agent Off the Rails (Correlation)` | 2+ of these alerts on the same user within an hour | `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server`, `Claude - Repeated API Auth Failures (401/403)` |
+| `Claude - Unapproved IP with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Compliance API Activity from Unapproved IP (Signal)`, `Claude - Accepted High-Risk Tool Calls (Signal)` |
+| `Claude - Role Change with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Accepted High-Risk Tool Calls (Signal)`, `Claude - Role or Permission Change (Signal)` |
 
 ---
 
@@ -155,18 +196,23 @@ the exact instructions.
 
 | Rule | Placeholder in query | What to put there |
 |---|---|---|
-| `Claude Cowork - Unapproved Model Used` | `<approved-model-1>`, `<approved-model-2>` | Your approved Claude model IDs |
-| `Claude Cowork - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | UUIDs (not display names) of approved MCP servers |
-| `Claude Cowork - SSRF or Injection Marker in Tool Arguments` | `<marker-1>`, `<marker-2>` | SSRF/injection strings to catch. No default; the rule is inert until filled |
-| `Claude Cowork - Unapproved Plugin Loaded` | `<approved-plugin-N>` + `<approved-marketplace-N>` | Approved plugin/marketplace pairs, one `not (...)` line per plugin |
-| `Claude Cowork - Repeated Calls to Unapproved Domain` | `<approved-domain-1>\|<approved-domain-2>` | Approved outbound domains as a regex (escape dots). Also in the (Signal) sibling |
-| `Claude Cowork - Compliance API Activity from Unapproved IP (Signal)` | `<approved-ip-1>`, `<approved-ip-2>` | Office egress, VPN and cloud workstation IPs (literal IPs, no CIDR) |
-| `Claude Cowork - Compliance API Accessed by Unapproved Actor` | `<approved-compliance-user-1>`, `<approved-compliance-user-2>` | Emails of people and automation allowed to use the Compliance API |
-| `Claude Cowork - Git Push to Unapproved Remote` | `origin`, `upstream` (pre-filled) | Your approved git remote alias names |
-| `Claude Cowork - Token Minting with Unapproved Git Push` | Minting regex + `origin\|upstream` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases |
-| `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools` | `Bash`, `Write`, `Edit`, `NotebookEdit` (pre-filled) | High-risk tool list; also used by the (Signal) sibling, Human Reviewer Approving Everything and Accepted High-Risk Tool Calls (Signal) |
-| `Claude Cowork - Risky Bash Command Proposed` | `curl`, `wget`, `base64`, `chmod` (pre-filled) | Risky command names for your environment. Also in the (Signal) sibling |
-| `Claude Cowork - Credential File or Cloud Metadata Access` | Path/IP list (pre-filled) | Optional: add more credential paths |
+| `Claude - Unapproved Model Used` | `<approved-model-1>`, `<approved-model-2>` | Your approved Claude model IDs |
+| `Claude - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | Cowork: UUIDs (not display names) of approved MCP servers |
+| `Claude - Unapproved MCP Server Connected` | `<approved-mcp-server-1>`, `<approved-mcp-server-2>` | Claude Code: approved MCP server names as they appear in `server_name` |
+| `Claude - Session in Unapproved Repository` | `<approved-org-1>`, `<approved-org-2>` | Your GitHub/GitLab organization names (repository owners) |
+| `Claude - SSRF or Injection Marker in Tool Arguments` | `<marker-1>`, `<marker-2>` | SSRF/injection strings to catch. No default; the rule is inert until filled |
+| `Claude - Unapproved Plugin Loaded` | `<approved-plugin-N>` + `<approved-marketplace-N>` | Approved plugin/marketplace pairs, one `not (...)` line per plugin |
+| `Claude - Repeated Calls to Unapproved Domain` | `<approved-domain-1>\|<approved-domain-2>` | Approved outbound domains as a regex (escape dots). Also in the (Signal) sibling |
+| `Claude - Compliance API Activity from Unapproved IP (Signal)` | `<approved-ip-1>`, `<approved-ip-2>` | Office egress, VPN and cloud workstation IPs (literal IPs, no CIDR) |
+| `Claude - Compliance API Accessed by Unapproved Actor` | `<approved-compliance-user-1>`, `<approved-compliance-user-2>` | Emails of people and automation allowed to use the Compliance API |
+| `Claude - Git Push to Unapproved Remote` | `origin`, `upstream` (pre-filled) | Your approved git remote alias names |
+| `Claude - Token Minting with Unapproved Git Push` | Minting regex + `origin\|upstream` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases |
+| `Claude - Agent Committed to Protected Branch` | `main`, `master` (pre-filled) | Your protected branch names |
+| `Claude - Write to Sensitive or Persistence Path` | Path regex (pre-filled) | Optional: add more persistence or config paths |
+| `Claude - Read Tool Opened Credential File` | Path regex (pre-filled) | Optional: add credential paths, or drop `.env` if reading it is routine |
+| `Claude - High Auto-Accept Ratio on High-Risk Tools` | `Bash`, `Write`, `Edit`, `NotebookEdit` (pre-filled) | High-risk tool list; also used by the (Signal) sibling, Human Reviewer Approving Everything and Accepted High-Risk Tool Calls (Signal) |
+| `Claude - Risky Bash Command Proposed` | `curl`, `wget`, `base64`, `chmod` (pre-filled) | Risky command names for your environment. Also in the (Signal) sibling |
+| `Claude - Credential File or Cloud Metadata Access` | Path/IP list (pre-filled) | Optional: add more credential paths |
 | All four correlation rules | `00000000-0000-0000-0000-000000000000` in the `@index=` line | Your tenant's `_detections` index ID. Tab-complete `@index=_detections` in the Scanner search box to get it |
 
 Rows marked *(pre-filled)* work as shipped, but the defaults are generic. Review them for your environment. The correlations also inherit the values of the rules that feed them.
@@ -180,8 +226,8 @@ inventory changes. Review them periodically, not just at setup.
 
 ### Log source and field names
 
-The Cowork rules expect the OpenTelemetry log events after Scanner
-has flattened them into dot-path fields, for example
+The rules expect the Claude Cowork and Claude Code OpenTelemetry log events
+after Scanner has flattened them into dot-path fields, for example
 `log.attributes.event.name`, `log.attributes.session.id`,
 `log.attributes.tool_parameters`. If your ingestion pipeline flattens or
 renames fields differently, adjust the queries to match.
@@ -209,48 +255,55 @@ data. Expect to adjust them after watching `_detections` in Staging.
 
 ## All rules
 
-38 rules: 22 alerts, 12 signals, 4 correlations.
+45 rules: 29 alerts, 12 signals, 4 correlations. Products: *Both* = Claude Cowork and Claude Code, *Cowork* = Claude Cowork only, *Code* = Claude Code only.
 
-| Name | Kind | Severity | Window / frequency | File |
-|---|---|---|---|---|
-| Claude Cowork - API Rate Limit Storm (429) | Alert | Medium | 1h / 1h | [`api_rate_limit_storm.yml`](rules/api_rate_limit_storm.yml) |
-| Claude Cowork - Auto-Accepted File Overwrite Tools | Alert | Medium | 1h / 1h | [`auto_accepted_file_overwrite_tools.yml`](rules/auto_accepted_file_overwrite_tools.yml) |
-| Claude Cowork - Compliance API Accessed by Unapproved Actor | Alert | High | 1h / 1h | [`compliance_api_accessed_by_unapproved_actor.yml`](rules/compliance_api_accessed_by_unapproved_actor.yml) |
-| Claude Cowork - Credential File or Cloud Metadata Access | Alert | High | 1h / 15m | [`credential_file_or_cloud_metadata_access.yml`](rules/credential_file_or_cloud_metadata_access.yml) |
-| Claude Cowork - Elevated Tool Rejection Rate | Alert | Medium | 1h / 1h | [`elevated_tool_rejection_rate.yml`](rules/elevated_tool_rejection_rate.yml) |
-| Claude Cowork - Git Push to Unapproved Remote | Alert | High | 1h / 15m | [`git_push_to_unapproved_remote.yml`](rules/git_push_to_unapproved_remote.yml) |
-| Claude Cowork - High Auto-Accept Ratio on High-Risk Tools | Alert | Medium | 1h / 1h | [`high_auto_accept_ratio_on_high_risk_tools.yml`](rules/high_auto_accept_ratio_on_high_risk_tools.yml) |
-| Claude Cowork - High Tool Call Volume in Session | Alert | Medium | 1h / 1h | [`high_tool_call_volume_in_session.yml`](rules/high_tool_call_volume_in_session.yml) |
-| Claude Cowork - Human Reviewer Approving Everything | Alert | Medium | 1h / 1h | [`human_reviewer_approving_everything.yml`](rules/human_reviewer_approving_everything.yml) |
-| Claude Cowork - Low-Activity User Running Risky Tools | Alert | Medium | 1h / 1h | [`low_activity_user_running_risky_tools.yml`](rules/low_activity_user_running_risky_tools.yml) |
-| Claude Cowork - Repeated API Auth Failures (401/403) | Alert | Medium | 1h / 1h | [`repeated_api_auth_failures.yml`](rules/repeated_api_auth_failures.yml) |
-| Claude Cowork - Repeated Calls to Unapproved Domain | Alert | Medium | 1h / 15m | [`repeated_calls_to_unapproved_domain.yml`](rules/repeated_calls_to_unapproved_domain.yml) |
-| Claude Cowork - Repeated Escalation to bypassPermissions | Alert | High | 1h / 15m | [`repeated_escalation_to_bypass_permissions.yml`](rules/repeated_escalation_to_bypass_permissions.yml) |
-| Claude Cowork - Repeated Tool Execution Failures | Alert | Medium | 1h / 1h | [`repeated_tool_execution_failures.yml`](rules/repeated_tool_execution_failures.yml) |
-| Claude Cowork - Risky Bash Command Proposed | Alert | Medium | 1h / 15m | [`risky_bash_command_proposed.yml`](rules/risky_bash_command_proposed.yml) |
-| Claude Cowork - SSRF or Injection Marker in Tool Arguments | Alert | High | 1h / 15m | [`ssrf_or_injection_marker_in_tool_arguments.yml`](rules/ssrf_or_injection_marker_in_tool_arguments.yml) |
-| Claude Cowork - Same Bash Command Repeated in Session | Alert | Medium | 1h / 15m | [`same_bash_command_repeated_in_session.yml`](rules/same_bash_command_repeated_in_session.yml) |
-| Claude Cowork - Token Minting with Unapproved Git Push | Alert | High | 1h / 15m | [`token_minting_with_unapproved_git_push.yml`](rules/token_minting_with_unapproved_git_push.yml) |
-| Claude Cowork - Tool Call from Unapproved MCP Server | Alert | High | 1h / 15m | [`tool_call_from_unapproved_mcp_server.yml`](rules/tool_call_from_unapproved_mcp_server.yml) |
-| Claude Cowork - Unapproved Model Used | Alert | Medium | 5m / 5m | [`unapproved_model_used.yml`](rules/unapproved_model_used.yml) |
-| Claude Cowork - Unapproved Plugin Loaded | Alert | Medium | 1h / 1h | [`unapproved_plugin_loaded.yml`](rules/unapproved_plugin_loaded.yml) |
-| Claude Cowork - User Active Across Many Sessions | Alert | Medium | 1h / 1h | [`user_active_across_many_sessions.yml`](rules/user_active_across_many_sessions.yml) |
-| Claude Cowork - Accepted High-Risk Tool Calls (Signal) | Signal | Informational | 1h / 1h | [`accepted_high_risk_tool_calls_signal.yml`](rules/accepted_high_risk_tool_calls_signal.yml) |
-| Claude Cowork - Compliance API Activity from Unapproved IP (Signal) | Signal | Informational | 1h / 1h | [`compliance_api_activity_from_unapproved_ip_signal.yml`](rules/compliance_api_activity_from_unapproved_ip_signal.yml) |
-| Claude Cowork - High Auto-Accept Ratio on High-Risk Tools (Signal) | Signal | Informational | 1h / 1h | [`high_auto_accept_ratio_on_high_risk_tools_signal.yml`](rules/high_auto_accept_ratio_on_high_risk_tools_signal.yml) |
-| Claude Cowork - High Tool Call Volume in Session (Signal) | Signal | Informational | 1h / 1h | [`high_tool_call_volume_in_session_signal.yml`](rules/high_tool_call_volume_in_session_signal.yml) |
-| Claude Cowork - Human Reviewer Approving Everything (Signal) | Signal | Informational | 1h / 1h | [`human_reviewer_approving_everything_signal.yml`](rules/human_reviewer_approving_everything_signal.yml) |
-| Claude Cowork - Repeated API Auth Failures (401/403) (Signal) | Signal | Informational | 1h / 1h | [`repeated_api_auth_failures_signal.yml`](rules/repeated_api_auth_failures_signal.yml) |
-| Claude Cowork - Repeated Calls to Unapproved Domain (Signal) | Signal | Informational | 1h / 15m | [`repeated_calls_to_unapproved_domain_signal.yml`](rules/repeated_calls_to_unapproved_domain_signal.yml) |
-| Claude Cowork - Repeated Tool Execution Failures (Signal) | Signal | Informational | 1h / 1h | [`repeated_tool_execution_failures_signal.yml`](rules/repeated_tool_execution_failures_signal.yml) |
-| Claude Cowork - Risky Bash Command Proposed (Signal) | Signal | Informational | 1h / 15m | [`risky_bash_command_proposed_signal.yml`](rules/risky_bash_command_proposed_signal.yml) |
-| Claude Cowork - Role or Permission Change (Signal) | Signal | Informational | 1h / 1h | [`role_or_permission_change_signal.yml`](rules/role_or_permission_change_signal.yml) |
-| Claude Cowork - Same Bash Command Repeated in Session (Signal) | Signal | Informational | 1h / 15m | [`same_bash_command_repeated_in_session_signal.yml`](rules/same_bash_command_repeated_in_session_signal.yml) |
-| Claude Cowork - User Active Across Many Sessions (Signal) | Signal | Informational | 1h / 1h | [`user_active_across_many_sessions_signal.yml`](rules/user_active_across_many_sessions_signal.yml) |
-| Claude Cowork - Agent Off the Rails (Correlation) | Correlation | High | 1h / 1h | [`agent_off_the_rails_correlation.yml`](rules/agent_off_the_rails_correlation.yml) |
-| Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation) | Correlation | Critical | 24h / 1h | [`multi_stage_agent_compromise_critical_correlation.yml`](rules/multi_stage_agent_compromise_critical_correlation.yml) |
-| Claude Cowork - Role Change with Risky Tool Use (Correlation) | Correlation | High | 1h / 1h | [`role_change_with_risky_tool_use_correlation.yml`](rules/role_change_with_risky_tool_use_correlation.yml) |
-| Claude Cowork - Unapproved IP with Risky Tool Use (Correlation) | Correlation | High | 1h / 1h | [`unapproved_ip_with_risky_tool_use_correlation.yml`](rules/unapproved_ip_with_risky_tool_use_correlation.yml) |
+| Name | Kind | Severity | Products | Window / frequency | File |
+|---|---|---|---|---|---|
+| Claude - API Rate Limit Storm (429) | Alert | Medium | Both | 1h / 1h | [`api_rate_limit_storm.yml`](rules/api_rate_limit_storm.yml) |
+| Claude - Agent Committed to Protected Branch | Alert | Medium | Code | 1h / 15m | [`agent_committed_to_protected_branch.yml`](rules/agent_committed_to_protected_branch.yml) |
+| Claude - Auto-Accepted File Overwrite Tools | Alert | Medium | Both | 1h / 1h | [`auto_accepted_file_overwrite_tools.yml`](rules/auto_accepted_file_overwrite_tools.yml) |
+| Claude - Bash Run with Sandbox Disabled | Alert | Medium | Code | 1h / 15m | [`bash_run_with_sandbox_disabled.yml`](rules/bash_run_with_sandbox_disabled.yml) |
+| Claude - Compliance API Accessed by Unapproved Actor | Alert | High | Cowork | 1h / 1h | [`compliance_api_accessed_by_unapproved_actor.yml`](rules/compliance_api_accessed_by_unapproved_actor.yml) |
+| Claude - Credential File or Cloud Metadata Access | Alert | High | Both | 1h / 15m | [`credential_file_or_cloud_metadata_access.yml`](rules/credential_file_or_cloud_metadata_access.yml) |
+| Claude - Elevated Tool Rejection Rate | Alert | Medium | Both | 1h / 1h | [`elevated_tool_rejection_rate.yml`](rules/elevated_tool_rejection_rate.yml) |
+| Claude - Git Push to Unapproved Remote | Alert | High | Both | 1h / 15m | [`git_push_to_unapproved_remote.yml`](rules/git_push_to_unapproved_remote.yml) |
+| Claude - High Auto-Accept Ratio on High-Risk Tools | Alert | Medium | Both | 1h / 1h | [`high_auto_accept_ratio_on_high_risk_tools.yml`](rules/high_auto_accept_ratio_on_high_risk_tools.yml) |
+| Claude - High Tool Call Volume in Session | Alert | Medium | Both | 1h / 1h | [`high_tool_call_volume_in_session.yml`](rules/high_tool_call_volume_in_session.yml) |
+| Claude - Human Reviewer Approving Everything | Alert | Medium | Both | 1h / 1h | [`human_reviewer_approving_everything.yml`](rules/human_reviewer_approving_everything.yml) |
+| Claude - Low-Activity User Running Risky Tools | Alert | Medium | Both | 1h / 1h | [`low_activity_user_running_risky_tools.yml`](rules/low_activity_user_running_risky_tools.yml) |
+| Claude - Read Tool Opened Credential File | Alert | High | Code | 1h / 15m | [`read_tool_opened_credential_file.yml`](rules/read_tool_opened_credential_file.yml) |
+| Claude - Repeated API Auth Failures (401/403) | Alert | Medium | Both | 1h / 1h | [`repeated_api_auth_failures.yml`](rules/repeated_api_auth_failures.yml) |
+| Claude - Repeated Calls to Unapproved Domain | Alert | Medium | Both | 1h / 15m | [`repeated_calls_to_unapproved_domain.yml`](rules/repeated_calls_to_unapproved_domain.yml) |
+| Claude - Repeated Deny-Rule Hits | Alert | Medium | Both | 1h / 15m | [`repeated_deny_rule_hits.yml`](rules/repeated_deny_rule_hits.yml) |
+| Claude - Repeated Escalation to bypassPermissions | Alert | High | Cowork | 1h / 15m | [`repeated_escalation_to_bypass_permissions.yml`](rules/repeated_escalation_to_bypass_permissions.yml) |
+| Claude - Repeated Tool Execution Failures | Alert | Medium | Both | 1h / 1h | [`repeated_tool_execution_failures.yml`](rules/repeated_tool_execution_failures.yml) |
+| Claude - Risky Bash Command Proposed | Alert | Medium | Both | 1h / 15m | [`risky_bash_command_proposed.yml`](rules/risky_bash_command_proposed.yml) |
+| Claude - SSRF or Injection Marker in Tool Arguments | Alert | High | Both | 1h / 15m | [`ssrf_or_injection_marker_in_tool_arguments.yml`](rules/ssrf_or_injection_marker_in_tool_arguments.yml) |
+| Claude - Same Bash Command Repeated in Session | Alert | Medium | Both | 1h / 15m | [`same_bash_command_repeated_in_session.yml`](rules/same_bash_command_repeated_in_session.yml) |
+| Claude - Session in Unapproved Repository | Alert | Medium | Code | 1h / 1h | [`session_in_unapproved_repository.yml`](rules/session_in_unapproved_repository.yml) |
+| Claude - Token Minting with Unapproved Git Push | Alert | High | Both | 1h / 15m | [`token_minting_with_unapproved_git_push.yml`](rules/token_minting_with_unapproved_git_push.yml) |
+| Claude - Tool Call from Unapproved MCP Server | Alert | High | Cowork | 1h / 15m | [`tool_call_from_unapproved_mcp_server.yml`](rules/tool_call_from_unapproved_mcp_server.yml) |
+| Claude - Unapproved MCP Server Connected | Alert | Medium | Code | 1h / 15m | [`unapproved_mcp_server_connected.yml`](rules/unapproved_mcp_server_connected.yml) |
+| Claude - Unapproved Model Used | Alert | Medium | Both | 5m / 5m | [`unapproved_model_used.yml`](rules/unapproved_model_used.yml) |
+| Claude - Unapproved Plugin Loaded | Alert | Medium | Both | 1h / 1h | [`unapproved_plugin_loaded.yml`](rules/unapproved_plugin_loaded.yml) |
+| Claude - User Active Across Many Sessions | Alert | Medium | Both | 1h / 1h | [`user_active_across_many_sessions.yml`](rules/user_active_across_many_sessions.yml) |
+| Claude - Write to Sensitive or Persistence Path | Alert | High | Code | 1h / 15m | [`write_to_sensitive_or_persistence_path.yml`](rules/write_to_sensitive_or_persistence_path.yml) |
+| Claude - Accepted High-Risk Tool Calls (Signal) | Signal | Informational | Both | 1h / 1h | [`accepted_high_risk_tool_calls_signal.yml`](rules/accepted_high_risk_tool_calls_signal.yml) |
+| Claude - Compliance API Activity from Unapproved IP (Signal) | Signal | Informational | Cowork | 1h / 1h | [`compliance_api_activity_from_unapproved_ip_signal.yml`](rules/compliance_api_activity_from_unapproved_ip_signal.yml) |
+| Claude - High Auto-Accept Ratio on High-Risk Tools (Signal) | Signal | Informational | Both | 1h / 1h | [`high_auto_accept_ratio_on_high_risk_tools_signal.yml`](rules/high_auto_accept_ratio_on_high_risk_tools_signal.yml) |
+| Claude - High Tool Call Volume in Session (Signal) | Signal | Informational | Both | 1h / 1h | [`high_tool_call_volume_in_session_signal.yml`](rules/high_tool_call_volume_in_session_signal.yml) |
+| Claude - Human Reviewer Approving Everything (Signal) | Signal | Informational | Both | 1h / 1h | [`human_reviewer_approving_everything_signal.yml`](rules/human_reviewer_approving_everything_signal.yml) |
+| Claude - Repeated API Auth Failures (401/403) (Signal) | Signal | Informational | Both | 1h / 1h | [`repeated_api_auth_failures_signal.yml`](rules/repeated_api_auth_failures_signal.yml) |
+| Claude - Repeated Calls to Unapproved Domain (Signal) | Signal | Informational | Both | 1h / 15m | [`repeated_calls_to_unapproved_domain_signal.yml`](rules/repeated_calls_to_unapproved_domain_signal.yml) |
+| Claude - Repeated Tool Execution Failures (Signal) | Signal | Informational | Both | 1h / 1h | [`repeated_tool_execution_failures_signal.yml`](rules/repeated_tool_execution_failures_signal.yml) |
+| Claude - Risky Bash Command Proposed (Signal) | Signal | Informational | Both | 1h / 15m | [`risky_bash_command_proposed_signal.yml`](rules/risky_bash_command_proposed_signal.yml) |
+| Claude - Role or Permission Change (Signal) | Signal | Informational | Cowork | 1h / 1h | [`role_or_permission_change_signal.yml`](rules/role_or_permission_change_signal.yml) |
+| Claude - Same Bash Command Repeated in Session (Signal) | Signal | Informational | Both | 1h / 15m | [`same_bash_command_repeated_in_session_signal.yml`](rules/same_bash_command_repeated_in_session_signal.yml) |
+| Claude - User Active Across Many Sessions (Signal) | Signal | Informational | Both | 1h / 1h | [`user_active_across_many_sessions_signal.yml`](rules/user_active_across_many_sessions_signal.yml) |
+| Claude - Agent Off the Rails (Correlation) | Correlation | High | Both | 1h / 1h | [`agent_off_the_rails_correlation.yml`](rules/agent_off_the_rails_correlation.yml) |
+| Claude - Multi-Stage Agent Compromise (Critical Correlation) | Correlation | Critical | Both | 24h / 1h | [`multi_stage_agent_compromise_critical_correlation.yml`](rules/multi_stage_agent_compromise_critical_correlation.yml) |
+| Claude - Role Change with Risky Tool Use (Correlation) | Correlation | High | Cowork | 1h / 1h | [`role_change_with_risky_tool_use_correlation.yml`](rules/role_change_with_risky_tool_use_correlation.yml) |
+| Claude - Unapproved IP with Risky Tool Use (Correlation) | Correlation | High | Cowork | 1h / 1h | [`unapproved_ip_with_risky_tool_use_correlation.yml`](rules/unapproved_ip_with_risky_tool_use_correlation.yml) |
 
 ---
 

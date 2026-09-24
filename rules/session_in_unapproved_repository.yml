@@ -1,0 +1,35 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Session in Unapproved Repository
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude Code being used in a git repository owned by an organization that is not on your approved list, for example a personal or third-party repository on a corporate account.
+
+  ## Strategy
+  Every Claude Code event carries `vcs.owner.name` and `vcs.repository.name` when repository attributes are enabled. Matches events whose owner is not approved, grouped by user, owner and repository. Re-alerts at most once a day per group.
+
+  ## Triage and response
+  1. Identify the repository and whether the user has a business reason to work in it.
+  2. Check whether company code or secrets were copied into it (look for Write, Bash `cp` or `git push` in the same session).
+  3. If it is a cloned third-party repository, check it for a `.mcp.json`, hooks or `CLAUDE.md` instructions that could steer the agent.
+
+  ## Values you should supply
+  * Approved repository owners. Replace `<approved-org-1>` and `<approved-org-2>` with your GitHub/GitLab organization names. To allow single repositories, add `not log.attributes.vcs.repository.name:(...)`. Until you do, every repository will match.
+
+  ## Notes and limitations
+  * Requires Claude Code v2.1.269 or later with `OTEL_METRICS_INCLUDE_REPOSITORY=true`. Repositories with no `origin` remote have no owner and are not matched.
+severity: Medium
+query_text: |-
+  log.attributes.vcs.owner.name:*
+  not log.attributes.vcs.owner.name:("<approved-org-1>" or "<approved-org-2>")
+  | stats count() as events, countdistinct(log.attributes.session.id) as sessions by log.attributes.user.id, log.attributes.vcs.owner.name, log.attributes.vcs.repository.name
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+dedup_window_s: 86400
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0010.exfiltration

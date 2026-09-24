@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Compliance API Activity from Unapproved IP (Signal)
+name: Claude - Compliance API Activity from Unapproved IP (Signal)
 enabled: Staging
 description: |-
   ## Goal
@@ -9,13 +9,13 @@ description: |-
   Matches Compliance API activity where `actor.ip_address` is not an approved IP, grouped by actor. The grouping column is renamed to `entity_email` so the correlation rule can match it with the tool-use signal.
 
   ## Signal
-  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude Cowork - Unapproved IP with Risky Tool Use (Correlation)`.
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude - Unapproved IP with Risky Tool Use (Correlation)`.
 
   ## Values you should supply
   * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match.
 
   ## Notes and limitations
-  * Reads the Claude Compliance API activity feed, a separate log source from Cowork OpenTelemetry. `actor.ip_address` is documented but not yet seen in a real sample.
+  * Reads the Claude Compliance API activity feed, a separate log source from Claude's OpenTelemetry logs. `actor.ip_address` is documented but not yet seen in a real sample.
 severity: Informational
 query_text: |-
   actor.email_address:*
@@ -25,7 +25,7 @@ query_text: |-
 time_range_s: 3600
 run_frequency_s: 3600
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
 - signal
 - correlation.new_ip_risky_tool
-- tactics.ta0001.initial_access

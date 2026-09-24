@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Accepted High-Risk Tool Calls (Signal)
+name: Claude - Accepted High-Risk Tool Calls (Signal)
 enabled: Staging
 description: |-
   ## Goal
@@ -9,7 +9,7 @@ description: |-
   Counts accepted high-risk `tool_decision` events per user, renamed to `entity_email` so the Compliance API correlation rules can match it.
 
   ## Signal
-  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed both `Claude Cowork - Unapproved IP with Risky Tool Use (Correlation)` and `Claude Cowork - Role Change with Risky Tool Use (Correlation)`.
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed both `Claude - Unapproved IP with Risky Tool Use (Correlation)` and `Claude - Role Change with Risky Tool Use (Correlation)`.
 
   ## Values you should supply
   * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`).
@@ -26,8 +26,9 @@ query_text: |-
 time_range_s: 3600
 run_frequency_s: 3600
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - signal
 - correlation.new_ip_risky_tool
 - correlation.role_change_risky_tool
-- tactics.ta0002.execution

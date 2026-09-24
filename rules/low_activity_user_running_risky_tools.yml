@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Low-Activity User Running Risky Tools
+name: Claude - Low-Activity User Running Risky Tools
 enabled: Staging
 description: |-
   ## Goal
@@ -29,6 +29,8 @@ dedup_window_s: 86400
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0001.initial_access
 - techniques.t1078.valid_accounts

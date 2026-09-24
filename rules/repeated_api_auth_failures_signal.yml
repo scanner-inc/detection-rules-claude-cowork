@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Repeated API Auth Failures (401/403) (Signal)
+name: Claude - Repeated API Auth Failures (401/403) (Signal)
 enabled: Staging
 description: |-
   ## Goal
@@ -9,7 +9,7 @@ description: |-
   Same query as the alert version, with the threshold lowered to 2 errors.
 
   ## Signal
-  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude Cowork - Repeated API Auth Failures (401/403)`, which uses a stricter threshold.
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude - Repeated API Auth Failures (401/403)`, which uses a stricter threshold.
 severity: Informational
 query_text: |-
   log.attributes.event.name:api_error
@@ -20,7 +20,8 @@ query_text: |-
 time_range_s: 3600
 run_frequency_s: 3600
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - signal
 - correlation.composite_critical
-- tactics.ta0006.credential_access

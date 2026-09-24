@@ -1,12 +1,12 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation)
+name: Claude - Multi-Stage Agent Compromise (Critical Correlation)
 enabled: Staging
 description: |-
   ## Goal
   Detect one identity accumulating many different suspicious signals within a day. Each signal alone is weak or has an innocent explanation; five or more together describe an agent going through the stages of an intrusion (no human review, reconnaissance, credential access, persistence, command and control, exfiltration). Modeled on the July 2026 Hugging Face autonomous agent intrusion.
 
   ## Strategy
-  Queries `_detections` for alerts tagged `correlation.composite_critical` and fires when 5 or more distinct rules hit the same `entity_user_id` in a rolling 24 hours. Checked hourly, so a multi-day campaign is caught within hours. Contributors are nine signal rules (Informational, no sinks) and four standalone alerts: `Claude Cowork - Tool Call from Unapproved MCP Server`, `Claude Cowork - Credential File or Cloud Metadata Access`, `Claude Cowork - Token Minting with Unapproved Git Push` and `Claude Cowork - Repeated Escalation to bypassPermissions`. Where a rule has a signal sibling, only the signal carries the tag, so one behavior is never counted twice.
+  Queries `_detections` for alerts tagged `correlation.composite_critical` and fires when 5 or more distinct rules hit the same `entity_user_id` in a rolling 24 hours. Checked hourly, so a multi-day campaign is caught within hours. Contributors are nine signal rules (Informational, no sinks) and four standalone alerts: `Claude - Tool Call from Unapproved MCP Server`, `Claude - Credential File or Cloud Metadata Access`, `Claude - Token Minting with Unapproved Git Push` and `Claude - Repeated Escalation to bypassPermissions`. Where a rule has a signal sibling, only the signal carries the tag, so one behavior is never counted twice.
 
   ## Triage and response
   1. List the contributing alerts for the user from `_detections` and put them on a timeline.
@@ -18,7 +18,7 @@ description: |-
   * Inherits every placeholder in its contributing rules; fill those in first.
 
   ## Notes and limitations
-  * There is no separate check for sustained activity with no idle gaps; `Claude Cowork - High Tool Call Volume in Session (Signal)` stands in for it.
+  * There is no separate check for sustained activity with no idle gaps; `Claude - High Tool Call Volume in Session (Signal)` stands in for it.
   * Pivots on `user.id`.
   * The 5-rule threshold is a starting point. Large legitimate batch sessions can trip a few signals.
   * To add a contributor, tag it `correlation.composite_critical` and end its query with `rename(log.attributes.user.id as entity_user_id)`.
@@ -34,7 +34,9 @@ dedup_window_s: 86400
 event_sink_keys:
 - critical_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - correlation
 - tactics.ta0001.initial_access
 - tactics.ta0006.credential_access

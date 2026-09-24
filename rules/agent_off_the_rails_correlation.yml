@@ -1,12 +1,12 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Agent Off the Rails (Correlation)
+name: Claude - Agent Off the Rails (Correlation)
 enabled: Staging
 description: |-
   ## Goal
   Detect two or more agent-misbehavior alerts firing for the same user within an hour.
 
   ## Strategy
-  Queries `_detections` for alerts tagged `correlation.agent_off_rails`, which are raised by four standalone alerts: `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools`, `Claude Cowork - Repeated Tool Execution Failures`, `Claude Cowork - Tool Call from Unapproved MCP Server` and `Claude Cowork - Repeated API Auth Failures (401/403)`. Fires when 2 or more distinct rules hit the same `entity_user_id`.
+  Queries `_detections` for alerts tagged `correlation.agent_off_rails`, which are raised by four standalone alerts: `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server` and `Claude - Repeated API Auth Failures (401/403)`. Fires when 2 or more distinct rules hit the same `entity_user_id`.
 
   ## Triage and response
   1. Review the contributing alerts together.
@@ -31,6 +31,8 @@ run_frequency_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - correlation
 - tactics.ta0002.execution

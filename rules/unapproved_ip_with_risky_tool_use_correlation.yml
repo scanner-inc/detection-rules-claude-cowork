@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Unapproved IP with Risky Tool Use (Correlation)
+name: Claude - Unapproved IP with Risky Tool Use (Correlation)
 enabled: Staging
 description: |-
   ## Goal
@@ -15,10 +15,10 @@ description: |-
 
   ## Values you should supply
   * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
-  * Inherits the approved IP list from `Claude Cowork - Compliance API Activity from Unapproved IP (Signal)`.
+  * Inherits the approved IP list from `Claude - Compliance API Activity from Unapproved IP (Signal)`.
 
   ## Notes and limitations
-  * Assumes the Compliance API's `actor.email_address` and the Cowork telemetry's `user.email` refer to the same person. Confirm this once both sources are indexed.
+  * Assumes the Compliance API's `actor.email_address` and the Claude telemetry's `user.email` refer to the same person. Confirm this once both sources are indexed.
   * Both signals must keep their `rename(... as entity_email)` line, or the correlation silently stops matching.
   * Co-occurrence within the hour, not strict ordering.
 severity: High
@@ -32,6 +32,7 @@ run_frequency_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
 - correlation
 - tactics.ta0001.initial_access

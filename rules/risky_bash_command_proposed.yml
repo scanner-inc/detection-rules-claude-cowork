@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Risky Bash Command Proposed
+name: Claude - Risky Bash Command Proposed
 enabled: Staging
 description: |-
   ## Goal
@@ -18,7 +18,7 @@ description: |-
 
   ## Notes and limitations
   * This is a token match against a JSON string, not a command parser. Expect some noise from legitimate developer use; exclude known automation identities.
-  * Credential file paths and the cloud metadata IP are covered separately by `Claude Cowork - Credential File or Cloud Metadata Access`.
+  * Credential file paths and the cloud metadata IP are covered separately by `Claude - Credential File or Cloud Metadata Access`.
 severity: Medium
 query_text: |-
   log.attributes.event.name:tool_decision
@@ -31,6 +31,8 @@ dedup_window_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0002.execution
 - techniques.t1059.command_and_scripting_interpreter
