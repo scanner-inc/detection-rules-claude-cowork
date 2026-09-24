@@ -14,6 +14,7 @@ description: |-
   3. Work through the stages: what credentials were touched, what was pushed or sent out, what persists.
 
   ## Values you should supply
+  * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
   * Inherits every placeholder in its contributing rules; fill those in first.
 
   ## Notes and limitations
@@ -23,7 +24,7 @@ description: |-
   * To add a contributor, tag it `correlation.composite_critical` and end its query with `rename(log.attributes.user.id as entity_user_id)`.
 severity: Critical
 query_text: |-
-  @index=_detections
+  @index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
   tags[*]:correlation.composite_critical
   | stats countdistinct(name) as rule_count by results_table.rows[0].entity_user_id
   | where rule_count >= 5

@@ -13,13 +13,16 @@ description: |-
   2. Decide whether one session or several independent sessions are involved.
   3. If the agent is acting outside its task, stop the session and review its prompts.
 
+  ## Values you should supply
+  * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
+
   ## Notes and limitations
   * Groups by user, not session, so two unrelated sessions can combine.
   * Checks co-occurrence within the hour, not a tight 10-minute window.
   * Consider raising the threshold to 3 once you see how often pairs co-fire benignly.
 severity: High
 query_text: |-
-  @index=_detections
+  @index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
   tags[*]:correlation.agent_off_rails
   | stats countdistinct(name) as rule_count by results_table.rows[0].entity_user_id
   | where rule_count >= 2

@@ -13,12 +13,15 @@ description: |-
   2. Review the high-risk activity that followed.
   3. Revert unapproved role changes and review the account.
 
+  ## Values you should supply
+  * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
+
   ## Notes and limitations
   * Assumes the Compliance API's `actor.email_address` and the Cowork telemetry's `user.email` refer to the same person. Confirm this once both sources are indexed.
   * Co-occurrence within the hour, not strict ordering. Check `detected_in_time_range` on each contributing alert to see the order.
 severity: High
 query_text: |-
-  @index=_detections
+  @index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
   tags[*]:correlation.role_change_risky_tool
   | stats countdistinct(name) as rule_count by results_table.rows[0].entity_email
   | where rule_count >= 2

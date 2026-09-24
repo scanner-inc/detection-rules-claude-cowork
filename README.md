@@ -62,7 +62,7 @@ opts in with a tag (`correlation.<label>`) and names its user column the same
 way (`entity_user_id` or `entity_email`):
 
 ```
-@index=_detections
+@index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
 tags[*]:correlation.composite_critical
 | stats countdistinct(name) as rule_count by results_table.rows[0].entity_user_id
 | where rule_count >= 5
@@ -167,8 +167,9 @@ the exact instructions.
 | `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools` | `Bash`, `Write`, `Edit`, `NotebookEdit` (pre-filled) | High-risk tool list; also used by the (Signal) sibling, Human Reviewer Approving Everything and Accepted High-Risk Tool Calls (Signal) |
 | `Claude Cowork - Risky Bash Command Proposed` | `curl`, `wget`, `base64`, `chmod` (pre-filled) | Risky command names for your environment. Also in the (Signal) sibling |
 | `Claude Cowork - Credential File or Cloud Metadata Access` | Path/IP list (pre-filled) | Optional: add more credential paths |
+| All four correlation rules | `00000000-0000-0000-0000-000000000000` in the `@index=` line | Your tenant's `_detections` index ID. Tab-complete `@index=_detections` in the Scanner search box to get it |
 
-Rows marked *(pre-filled)* work as shipped, but the defaults are generic. Review them for your environment. The three correlations and the composite inherit the values of the rules that feed them.
+Rows marked *(pre-filled)* work as shipped, but the defaults are generic. Review them for your environment. The correlations also inherit the values of the rules that feed them.
 
 These lists drift. New Claude models and tools ship, and your MCP and repo
 inventory changes. Review them periodically, not just at setup.
