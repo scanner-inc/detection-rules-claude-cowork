@@ -13,7 +13,7 @@ description: |-
   2. Check the repository's remote configuration for newly added or re-pointed remotes.
   3. If the push was unauthorized, revoke any credentials the session had and review what was pushed.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved git remote aliases. The query ships with `origin` and `upstream` in the `not ... ("push origin" or "push upstream")` line; replace them with your own.
 
   ## Notes and limitations

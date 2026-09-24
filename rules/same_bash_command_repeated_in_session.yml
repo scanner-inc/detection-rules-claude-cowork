@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Repeated Normalized Bash Command
+name: Claude Cowork - Same Bash Command Repeated in Session
 enabled: Staging
 description: |-
   ## Goal

@@ -13,7 +13,7 @@ description: |-
   2. Talk with the user about review practices.
   3. If anything approved was harmful, treat it as an incident.
 
-  ## Values you must supply
+  ## Values you should supply
   * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`).
 
   ## Notes and limitations

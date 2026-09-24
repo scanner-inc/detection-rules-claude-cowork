@@ -14,7 +14,7 @@ description: |-
   3. Stop the session and review its activity.
 
   ## Notes and limitations
-  * Requires unredacted Claude Cowork/Claude Code telemetry. This rule reads `log.attributes.to_mode`. Scanner's own default ingestion redaction strips these fields, so either relax that redaction for them or make sure your own pipeline keeps them. Otherwise this rule will not fire.
+  * Reads `log.attributes.to_mode`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.
   * If you cannot keep `to_mode`, a weaker fallback is to count all `permission_mode_changed` events per session (for example 5 or more), which catches flapping but not which mode was reached.
 severity: High
 query_text: |-

@@ -13,7 +13,7 @@ description: |-
   2. Confirm with the user whether they installed or connected this server and where it came from.
   3. If unapproved, remove the server and review what data its tools could access.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved MCP server IDs. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved servers (not their display names). Until you do, every MCP tool call will match.
 
   ## Notes and limitations

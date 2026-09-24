@@ -13,7 +13,7 @@ description: |-
   2. Review the high-risk commands and file changes made in that hour.
   3. If the IP is not the user's, treat the account as compromised: revoke sessions and credentials.
 
-  ## Values you must supply
+  ## Values you should supply
   * Inherits the approved IP list from `Claude Cowork - Compliance API Activity from Unapproved IP (Signal)`.
 
   ## Notes and limitations

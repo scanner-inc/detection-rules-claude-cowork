@@ -13,7 +13,7 @@ description: |-
   2. Review the Bash commands and file writes the session ran (`tool_parameters`) for anything unexpected.
   3. If nobody expected an autonomous run, confirm with the user and review how the session's permission settings were configured.
 
-  ## Values you must supply
+  ## Values you should supply
   * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`). Review it against the tools your Claude deployment exposes. New tools ship over time.
 
   ## Notes and limitations

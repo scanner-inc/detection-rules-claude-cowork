@@ -13,7 +13,7 @@ description: |-
   2. Check whether the model is new and simply missing from your approved list.
   3. If not approved, follow your governance process with the user.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved models. Replace `<approved-model-1>` and `<approved-model-2>` with your approved model IDs. Revisit when new models are released. Until you do, every request will match.
 severity: Medium
 query_text: |-

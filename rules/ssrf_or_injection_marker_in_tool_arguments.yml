@@ -13,7 +13,7 @@ description: |-
   2. Check whether the call was accepted and what the matching `tool_result` returned.
   3. Review the prompts that led to the call for signs of prompt injection.
 
-  ## Values you must supply
+  ## Values you should supply
   * SSRF/injection marker strings. Replace `<marker-1>` and `<marker-2>` with the patterns you want to catch. There is no default list; this rule cannot fire until you add values.
 
   ## Notes and limitations

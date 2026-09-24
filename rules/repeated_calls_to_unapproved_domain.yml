@@ -13,7 +13,7 @@ description: |-
   2. Look at what was sent or fetched.
   3. Block the domain if it is not legitimate.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved outbound domains. Replace `<approved-domain-1>|<approved-domain-2>` in the regex with your domains (escape dots, for example `github\.com|pypi\.org`). Until you do, every URL will count as unapproved.
 
   ## Notes and limitations

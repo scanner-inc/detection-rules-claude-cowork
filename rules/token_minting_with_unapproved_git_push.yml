@@ -13,7 +13,7 @@ description: |-
   2. Identify the remote and what was pushed.
   3. Treat as a likely supply-chain incident until proven otherwise.
 
-  ## Values you must supply
+  ## Values you should supply
   * Token-minting command patterns. The regex `gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create` is a starting guess; replace it with the commands your agents actually use to obtain tokens.
   * Approved git remote aliases (`origin`, `upstream` in `push (origin|upstream)`); keep in sync with `Claude Cowork - Git Push to Unapproved Remote`.
 

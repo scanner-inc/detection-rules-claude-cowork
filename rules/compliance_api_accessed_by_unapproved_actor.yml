@@ -13,7 +13,7 @@ description: |-
   2. Check what else the actor did around the same time.
   3. If unauthorized, revoke the API key used.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved Compliance API users. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of your security/compliance staff and audit automation. Until you do, every access will match.
 
   ## Notes and limitations

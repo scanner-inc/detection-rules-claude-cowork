@@ -11,7 +11,7 @@ description: |-
   ## Signal
   This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude Cowork - Unapproved IP with Risky Tool Use (Correlation)`.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match.
 
   ## Notes and limitations

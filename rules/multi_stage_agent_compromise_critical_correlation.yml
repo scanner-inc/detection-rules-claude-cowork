@@ -13,7 +13,7 @@ description: |-
   2. Treat as a likely compromise: suspend the user's sessions and revoke their tokens while investigating.
   3. Work through the stages: what credentials were touched, what was pushed or sent out, what persists.
 
-  ## Values you must supply
+  ## Values you should supply
   * Inherits every placeholder in its contributing rules; fill those in first.
 
   ## Notes and limitations

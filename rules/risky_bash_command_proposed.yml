@@ -13,7 +13,7 @@ description: |-
   2. Check the destination of any download and whether the downloaded content was executed.
   3. Correlate with other activity in the same session.
 
-  ## Values you must supply
+  ## Values you should supply
   * The risky command list (`curl`, `wget`, `base64`, `chmod`). Add or remove commands for your environment.
 
   ## Notes and limitations

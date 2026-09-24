@@ -13,11 +13,11 @@ description: |-
   2. Check whether it ships hooks or MCP servers (`has_hooks`, `has_mcp`).
   3. If unapproved, disable it and review what it could access.
 
-  ## Values you must supply
+  ## Values you should supply
   * Approved plugins. Each `not (... and ...)` line is one approved plugin/marketplace pair; replace the `<approved-plugin-N>`/`<approved-marketplace-N>` placeholders and add a line per plugin. Until you do, every plugin load will match.
 
   ## Notes and limitations
-  * Requires unredacted Claude Cowork/Claude Code telemetry. This rule reads `log.attributes.plugin.name, log.attributes.marketplace.name`. Scanner's own default ingestion redaction strips these fields, so either relax that redaction for them or make sure your own pipeline keeps them. Otherwise this rule will not fire.
+  * Reads `log.attributes.plugin.name, log.attributes.marketplace.name`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.
 severity: Medium
 query_text: |-
   log.attributes.event.name:plugin_loaded

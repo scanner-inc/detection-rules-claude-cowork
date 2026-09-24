@@ -1,7 +1,10 @@
-# Scanner Detection Rules - Claude Cowork & Claude Code
+# Scanner Detection Rules - Claude Cowork
 
-Scanner detection rules for the OpenTelemetry logs emitted by Claude Cowork and
-Claude Code, plus two rules for the Claude Compliance API activity feed.
+Scanner detection rules for the OpenTelemetry logs emitted by Claude Cowork,
+plus three rules for the Claude Compliance API activity feed.
+
+Claude Code emits similarly named events, but these rules have not been
+validated against Claude Code logs.
 
 The pack has two purposes:
 
@@ -10,7 +13,10 @@ The pack has two purposes:
    an unexpected git remote, and so on.
 2. **A composite "would have caught it" alert.** It chains many weak signals
    into one critical alert, modeled on the July 2026 Hugging Face autonomous
-   agent intrusion.
+   agent intrusion. Scanner's detection engine runs many rules in parallel
+   without a performance penalty, so you can afford to watch for signals that
+   aren't alarming on their own but, together, point to a swarm event. This
+   composite is an example meant to inspire your own.
 
 All rules ship with `enabled: Staging`. Watch them in `_detections` for a few
 days, tune thresholds and fill in your own values, then switch them to
@@ -39,7 +45,7 @@ Scanner's built-in `_detections` index and nothing else happens.
 Signals capture activity that is **usually innocent on its own**:
 
 * a session that ran 50 tool calls in an hour,
-* a user with three sessions open at once,
+* a user with three different sessions within an hour,
 * a human reviewer who approved every command they saw,
 * a shell command that used `curl`.
 
@@ -107,15 +113,24 @@ of that attack:
 | `Claude Cowork - Risky Bash Command Proposed (Signal)` | Signal | Reconnaissance and tooling download |
 | `Claude Cowork - Repeated Tool Execution Failures (Signal)` | Signal | Probing restricted resources |
 | `Claude Cowork - Repeated API Auth Failures (401/403) (Signal)` | Signal | Credential misuse |
-| `Claude Cowork - Repeated Normalized Bash Command (Signal)` | Signal | Device enrollment / pod fleet fan-out |
+| `Claude Cowork - Same Bash Command Repeated in Session (Signal)` | Signal | Device enrollment / pod fleet fan-out |
 | `Claude Cowork - Repeated Calls to Unapproved Domain (Signal)` | Signal | Command and control over public services |
 | `Claude Cowork - Tool Call from Unapproved MCP Server` | Alert | Shadow tooling |
 | `Claude Cowork - Credential File or Cloud Metadata Access` | Alert | Credential access |
 | `Claude Cowork - Token Minting with Unapproved Git Push` | Alert | Token minting and supply-chain compromise |
 | `Claude Cowork - Repeated Escalation to bypassPermissions` | Alert | Defense evasion |
 
-To add a contributor, tag the rule `correlation.composite_critical` and make
-its query end with `| rename(log.attributes.user.id as entity_user_id)`.
+**Adding your own rule to the composite.** Any rule can count toward this
+alert if it does two things:
+
+1. Include `correlation.composite_critical` in its `tags:` list. That tag is
+   how the composite finds it.
+2. End its query with `| rename(log.attributes.user.id as entity_user_id)`.
+   The composite counts rules per user and expects the user in a column named
+   `entity_user_id`.
+
+Adding a rule this way makes the composite more sensitive, so you may want to
+raise its threshold from 5.
 
 ### Other correlations in this pack
 
@@ -127,7 +142,7 @@ its query end with `| rename(log.attributes.user.id as entity_user_id)`.
 
 ---
 
-## Values you must supply
+## Values you should supply
 
 Many rules check activity against **your** allowlists: approved models, MCP
 servers, git remotes, domains and so on. There is no universal default for
@@ -135,7 +150,7 @@ these, so the queries ship with **placeholders in angle brackets**, such as
 `<approved-model-1>`. **A rule with an unfilled placeholder will either match
 everything or never match.** Fill these in before you set a rule to `Active`.
 
-Each rule's description also has a **"Values you must supply"** section with
+Each rule's description also has a **"Values you should supply"** section with
 the exact instructions.
 
 | Rule | Placeholder in query | What to put there |
@@ -164,7 +179,7 @@ inventory changes. Review them periodically, not just at setup.
 
 ### Log source and field names
 
-The Cowork/Claude Code rules expect the OpenTelemetry log events after Scanner
+The Cowork rules expect the OpenTelemetry log events after Scanner
 has flattened them into dot-path fields, for example
 `log.attributes.event.name`, `log.attributes.session.id`,
 `log.attributes.tool_parameters`. If your ingestion pipeline flattens or
@@ -179,18 +194,10 @@ feed** (`type`, `actor.*` fields), a separate source. If you don't ingest it,
 leave those three rules disabled; the two correlations that depend on them will
 simply never fire.
 
-### Unredacted fields
+### Redacted fields
 
-Some rules read fields that Scanner's default Claude telemetry redaction
-removes: `user.email`, `plugin.name`/`marketplace.name`, and the permission
-mode `to_mode`. These rules only fire if your pipeline keeps those fields.
-Their descriptions say which fields they need.
-
-Rules affected:
-
-* `Claude Cowork - Accepted High-Risk Tool Calls (Signal)`
-* `Claude Cowork - Unapproved Plugin Loaded`
-* `Claude Cowork - Repeated Escalation to bypassPermissions`
+Some fields might be redacted for privacy reasons. Make sure your detections
+don't rely on fields that are redacted in your environment.
 
 ### Thresholds are starting points
 
@@ -218,10 +225,10 @@ data. Expect to adjust them after watching `_detections` in Staging.
 | Claude Cowork - Repeated API Auth Failures (401/403) | Alert | Medium | 1h / 1h | [`repeated_api_auth_failures.yml`](rules/repeated_api_auth_failures.yml) |
 | Claude Cowork - Repeated Calls to Unapproved Domain | Alert | Medium | 1h / 15m | [`repeated_calls_to_unapproved_domain.yml`](rules/repeated_calls_to_unapproved_domain.yml) |
 | Claude Cowork - Repeated Escalation to bypassPermissions | Alert | High | 1h / 15m | [`repeated_escalation_to_bypass_permissions.yml`](rules/repeated_escalation_to_bypass_permissions.yml) |
-| Claude Cowork - Repeated Normalized Bash Command | Alert | Medium | 1h / 15m | [`repeated_normalized_bash_command.yml`](rules/repeated_normalized_bash_command.yml) |
 | Claude Cowork - Repeated Tool Execution Failures | Alert | Medium | 1h / 1h | [`repeated_tool_execution_failures.yml`](rules/repeated_tool_execution_failures.yml) |
 | Claude Cowork - Risky Bash Command Proposed | Alert | Medium | 1h / 15m | [`risky_bash_command_proposed.yml`](rules/risky_bash_command_proposed.yml) |
 | Claude Cowork - SSRF or Injection Marker in Tool Arguments | Alert | High | 1h / 15m | [`ssrf_or_injection_marker_in_tool_arguments.yml`](rules/ssrf_or_injection_marker_in_tool_arguments.yml) |
+| Claude Cowork - Same Bash Command Repeated in Session | Alert | Medium | 1h / 15m | [`same_bash_command_repeated_in_session.yml`](rules/same_bash_command_repeated_in_session.yml) |
 | Claude Cowork - Token Minting with Unapproved Git Push | Alert | High | 1h / 15m | [`token_minting_with_unapproved_git_push.yml`](rules/token_minting_with_unapproved_git_push.yml) |
 | Claude Cowork - Tool Call from Unapproved MCP Server | Alert | High | 1h / 15m | [`tool_call_from_unapproved_mcp_server.yml`](rules/tool_call_from_unapproved_mcp_server.yml) |
 | Claude Cowork - Unapproved Model Used | Alert | Medium | 5m / 5m | [`unapproved_model_used.yml`](rules/unapproved_model_used.yml) |
@@ -234,10 +241,10 @@ data. Expect to adjust them after watching `_detections` in Staging.
 | Claude Cowork - Human Reviewer Approving Everything (Signal) | Signal | Informational | 1h / 1h | [`human_reviewer_approving_everything_signal.yml`](rules/human_reviewer_approving_everything_signal.yml) |
 | Claude Cowork - Repeated API Auth Failures (401/403) (Signal) | Signal | Informational | 1h / 1h | [`repeated_api_auth_failures_signal.yml`](rules/repeated_api_auth_failures_signal.yml) |
 | Claude Cowork - Repeated Calls to Unapproved Domain (Signal) | Signal | Informational | 1h / 15m | [`repeated_calls_to_unapproved_domain_signal.yml`](rules/repeated_calls_to_unapproved_domain_signal.yml) |
-| Claude Cowork - Repeated Normalized Bash Command (Signal) | Signal | Informational | 1h / 15m | [`repeated_normalized_bash_command_signal.yml`](rules/repeated_normalized_bash_command_signal.yml) |
 | Claude Cowork - Repeated Tool Execution Failures (Signal) | Signal | Informational | 1h / 1h | [`repeated_tool_execution_failures_signal.yml`](rules/repeated_tool_execution_failures_signal.yml) |
 | Claude Cowork - Risky Bash Command Proposed (Signal) | Signal | Informational | 1h / 15m | [`risky_bash_command_proposed_signal.yml`](rules/risky_bash_command_proposed_signal.yml) |
 | Claude Cowork - Role or Permission Change (Signal) | Signal | Informational | 1h / 1h | [`role_or_permission_change_signal.yml`](rules/role_or_permission_change_signal.yml) |
+| Claude Cowork - Same Bash Command Repeated in Session (Signal) | Signal | Informational | 1h / 15m | [`same_bash_command_repeated_in_session_signal.yml`](rules/same_bash_command_repeated_in_session_signal.yml) |
 | Claude Cowork - User Active Across Many Sessions (Signal) | Signal | Informational | 1h / 1h | [`user_active_across_many_sessions_signal.yml`](rules/user_active_across_many_sessions_signal.yml) |
 | Claude Cowork - Agent Off the Rails (Correlation) | Correlation | High | 1h / 1h | [`agent_off_the_rails_correlation.yml`](rules/agent_off_the_rails_correlation.yml) |
 | Claude Cowork - Multi-Stage Agent Compromise (Critical Correlation) | Correlation | Critical | 24h / 1h | [`multi_stage_agent_compromise_critical_correlation.yml`](rules/multi_stage_agent_compromise_critical_correlation.yml) |
