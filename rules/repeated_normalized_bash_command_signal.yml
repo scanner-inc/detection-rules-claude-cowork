@@ -14,7 +14,7 @@ severity: Informational
 query_text: |-
   log.attributes.event.name:tool_decision
   log.attributes.tool_name:Bash
-  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"bash_command":\s*"(\S+\s+\S+)/, 1), log.attributes.tool_parameters)
+  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"bash_command":\s*"([^\s"]+(?:\s+[^\s"]+)?)/, 1), log.attributes.tool_parameters)
   | stats count() as reps by norm_cmd, log.attributes.session.id, log.attributes.user.id
   | where reps >= 5
   | rename(log.attributes.user.id as entity_user_id)
