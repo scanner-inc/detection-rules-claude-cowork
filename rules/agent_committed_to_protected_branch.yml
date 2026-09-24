@@ -1,0 +1,38 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Agent Committed to Protected Branch
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude Code making a git commit directly on a protected branch (for example `main` or `master`) instead of a feature branch, bypassing code review.
+
+  ## Strategy
+  Claude Code adds `vcs.ref.head.name` (the branch) to the `tool_result` event of every successful `git commit` it runs. Matches commits whose branch is on the protected list, grouped by user, session, repository and branch.
+
+  ## Triage and response
+  1. Identify the repository and the commit (`vcs.ref.head.revision`, or `git_commit_id` inside `tool_parameters`).
+  2. Check whether the commit was pushed, and whether branch protection on the remote would have blocked it.
+  3. Review the diff; if it was not intended, revert it and remind the user to work on a branch.
+
+  ## Values you should supply
+  * Protected branch names. The query ships with `main` and `master`; add others (for example `release`, `production`) as more `log.attributes.vcs.ref.head.name="..."` terms. `=` is an exact match, so `feature/main` does not match.
+
+  ## Notes and limitations
+  * Requires Claude Code v2.1.269 or later. In Claude Code, `tool_input` and `tool_parameters` are only logged when `OTEL_LOG_TOOL_DETAILS=1` is set. Without it this rule cannot fire.
+  * Only commits Claude runs through its Bash tool are logged; commits the user makes in their own terminal are not.
+  * Solo repositories where everyone commits to `main` will fire constantly; exclude those repositories or users.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_result
+  (log.attributes.vcs.ref.head.name="main" or log.attributes.vcs.ref.head.name="master")
+  | stats count() as commits by log.attributes.user.id, log.attributes.session.id, log.attributes.vcs.repository.name, log.attributes.vcs.ref.head.name
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0040.impact
+- techniques.t1565.data_manipulation

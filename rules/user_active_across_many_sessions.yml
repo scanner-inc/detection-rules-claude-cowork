@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - User Active Across Many Sessions
+name: Claude - User Active Across Many Sessions
 enabled: Staging
 description: |-
   ## Goal
@@ -25,6 +25,8 @@ run_frequency_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0001.initial_access
 - techniques.t1078.valid_accounts

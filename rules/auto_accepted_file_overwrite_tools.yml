@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Auto-Accepted File Overwrite Tools
+name: Claude - Auto-Accepted File Overwrite Tools
 enabled: Staging
 description: |-
   ## Goal
@@ -16,7 +16,7 @@ description: |-
   ## Notes and limitations
   * Assumes interactive, human-reviewed usage is the norm.
   * Deletion through Bash (`rm` and similar) is not covered.
-  * Often fires together with `Claude Cowork - High Auto-Accept Ratio on High-Risk Tools`; that is expected.
+  * Often fires together with `Claude - High Auto-Accept Ratio on High-Risk Tools`; that is expected.
 severity: Medium
 query_text: |-
   log.attributes.event.name:tool_decision
@@ -31,5 +31,7 @@ run_frequency_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0040.impact

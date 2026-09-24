@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - High Auto-Accept Ratio on High-Risk Tools
+name: Claude - High Auto-Accept Ratio on High-Risk Tools
 enabled: Staging
 description: |-
   ## Goal
@@ -34,6 +34,8 @@ run_frequency_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - correlation.agent_off_rails
 - tactics.ta0002.execution

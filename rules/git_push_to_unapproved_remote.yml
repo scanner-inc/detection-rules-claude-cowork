@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Git Push to Unapproved Remote
+name: Claude - Git Push to Unapproved Remote
 enabled: Staging
 description: |-
   ## Goal
@@ -31,6 +31,8 @@ dedup_window_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0010.exfiltration
 - techniques.t1567.exfiltration_over_web_service

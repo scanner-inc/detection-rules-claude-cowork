@@ -1,0 +1,38 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Bash Run with Sandbox Disabled
+enabled: Staging
+description: |-
+  ## Goal
+  Detect Claude Code running a shell command with `dangerouslyDisableSandbox` set, which runs it outside the Bash sandbox's filesystem and network restrictions.
+
+  ## Strategy
+  Matches Bash `tool_decision` events whose `tool_parameters` contain `"dangerouslyDisableSandbox":true`, grouped by user, session and decision. Uses `tool_decision` so attempts that were rejected are also reported.
+
+  ## Triage and response
+  1. Read the command and whether it was accepted (`decision`).
+  2. Check whether the command needed to leave the sandbox (for example a tool that fails inside it) or was using the flag to reach the network or files the sandbox blocks.
+  3. If sandbox escapes are not expected, set `allowUnsandboxedCommands` to false in managed settings.
+
+  ## Notes and limitations
+  * In Claude Code, `tool_input` and `tool_parameters` are only logged when `OTEL_LOG_TOOL_DETAILS=1` is set. Without it this rule cannot fire.
+  * Only meaningful where the Bash sandbox is enabled.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  log.attributes.tool_parameters:dangerouslyDisableSandbox
+  | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), "")
+  | eval is_unsandboxed = if(regex.is_match(cmd, /"dangerouslyDisableSandbox":\s*true/), 1, 0)
+  | where is_unsandboxed = 1
+  | stats count() as unsandboxed_commands by log.attributes.user.id, log.attributes.session.id, log.attributes.decision
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0005.defense_evasion
+- techniques.t1562.impair_defenses

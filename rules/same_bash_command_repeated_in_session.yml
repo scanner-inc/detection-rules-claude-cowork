@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Same Bash Command Repeated in Session
+name: Claude - Same Bash Command Repeated in Session
 enabled: Staging
 description: |-
   ## Goal
@@ -15,13 +15,13 @@ description: |-
 
   ## Notes and limitations
   * Two different commands that share their first two words are grouped together. A single-word command (for example `id`) is grouped by that word.
-  * The regex assumes the `"bash_command": "..."` JSON shape inside `tool_parameters`.
+  * The regex reads the `"full_command"` key inside `tool_parameters` (in real logs `bash_command` holds only the program name).
   * The 10-repeat threshold is a starting point.
 severity: Medium
 query_text: |-
   log.attributes.event.name:tool_decision
   log.attributes.tool_name:Bash
-  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"bash_command":\s*"([^\s"]+(?:\s+[^\s"]+)?)/, 1), log.attributes.tool_parameters)
+  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"full_command":\s*"([^\s"]+(?:\s+[^\s"]+)?)/, 1), log.attributes.tool_parameters)
   | stats count() as reps by norm_cmd, log.attributes.session.id, log.attributes.user.id
   | where reps >= 10
   | rename(log.attributes.user.id as entity_user_id)
@@ -31,5 +31,7 @@ dedup_window_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0003.persistence

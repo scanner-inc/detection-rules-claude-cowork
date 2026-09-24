@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Elevated Tool Rejection Rate
+name: Claude - Elevated Tool Rejection Rate
 enabled: Staging
 description: |-
   ## Goal
@@ -28,5 +28,7 @@ run_frequency_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0007.discovery

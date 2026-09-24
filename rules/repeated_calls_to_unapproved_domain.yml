@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Repeated Calls to Unapproved Domain
+name: Claude - Repeated Calls to Unapproved Domain
 enabled: Staging
 description: |-
   ## Goal
@@ -36,6 +36,8 @@ dedup_window_s: 3600
 event_sink_keys:
 - medium_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
+- product.claude_code
 - tactics.ta0011.command_and_control
 - techniques.t1071.application_layer_protocol

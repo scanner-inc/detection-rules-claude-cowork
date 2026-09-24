@@ -1,5 +1,5 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
-name: Claude Cowork - Tool Call from Unapproved MCP Server
+name: Claude - Tool Call from Unapproved MCP Server
 enabled: Staging
 description: |-
   ## Goal
@@ -32,7 +32,8 @@ dedup_window_s: 3600
 event_sink_keys:
 - high_severity_alerts
 tags:
-- source.claude_cowork
+- source.claude
+- product.claude_cowork
 - correlation.agent_off_rails
 - correlation.composite_critical
 - tactics.ta0003.persistence
