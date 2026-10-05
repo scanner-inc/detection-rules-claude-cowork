@@ -2,6 +2,10 @@
 name: Claude - Multi-Stage Agent Compromise (Critical Correlation)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Never fires until you replace `00000000-0000-0000-0000-000000000000`** in the first line of the query with your `_detections` index ID (see "Values you should supply").
+  * It only fires if its contributing rules are enabled. Fill in their placeholders first: a contributor left unfilled matches everything and makes this correlation fire far more often.
+
   ## Goal
   Detect one identity accumulating many different suspicious signals within a day. Each signal alone is weak or has an innocent explanation; five or more together describe an agent going through the stages of an intrusion (no human review, reconnaissance, credential access, persistence, command and control, exfiltration). Modeled on the July 2026 Hugging Face autonomous agent intrusion.
 

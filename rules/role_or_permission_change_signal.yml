@@ -2,6 +2,9 @@
 name: Claude - Role or Permission Change (Signal)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires. `Claude - Role Change with Risky Tool Use (Correlation)` then never fires either.
+
   ## Goal
   Signal: a role or permission change for a user in the Claude Compliance API activity feed.
 

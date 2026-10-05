@@ -2,6 +2,9 @@
 name: Claude - Repeated Escalation to bypassPermissions
 enabled: Staging
 description: |-
+  ## Before you enable
+  * If your pipeline redacts `to_mode`, this rule never fires.
+
   ## Goal
   Detect a session repeatedly switching into `bypassPermissions`, the permission mode that skips all confirmation prompts.
 

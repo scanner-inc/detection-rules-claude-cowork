@@ -2,6 +2,10 @@
 name: Claude - Bash Run with Sandbox Disabled
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
   ## Goal
   Detect Claude Code running a shell command with `dangerouslyDisableSandbox` set, which runs it outside the Bash sandbox's filesystem and network restrictions.
 

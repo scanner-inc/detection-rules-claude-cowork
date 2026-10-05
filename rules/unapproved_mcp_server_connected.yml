@@ -2,6 +2,11 @@
 name: Claude - Unapproved MCP Server Connected
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Matches every MCP server connection until you replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>`.**
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1` so MCP server names are logged (see the README's telemetry settings).
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect Claude Code connecting to an MCP server that is not on your approved list.
 

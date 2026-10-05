@@ -2,6 +2,11 @@
 name: Claude - Compliance API Activity from Unapproved IP (Signal)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Matches all Compliance API activity until you replace `<approved-ip-1>` and `<approved-ip-2>`** with your egress IPs.
+  * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires. `Claude - Unapproved IP with Risky Tool Use (Correlation)` then never fires either.
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Signal: Claude activity from an IP address outside your approved ranges, as recorded by the Claude Compliance API activity feed.
 

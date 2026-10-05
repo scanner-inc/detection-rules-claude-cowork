@@ -2,6 +2,11 @@
 name: Claude - Agent Committed to Protected Branch
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped with `main` and `master` as protected branches.
+  * Claude Code: needs v2.1.269 or later and `OTEL_LOG_TOOL_DETAILS=1`, or the branch is not logged and this rule never fires.
+  * The inline tests use the shipped defaults. If you change them, update the test events too.
+
   ## Goal
   Detect Claude Code making a git commit directly on a protected branch (for example `main` or `master`) instead of a feature branch, bypassing code review.
 

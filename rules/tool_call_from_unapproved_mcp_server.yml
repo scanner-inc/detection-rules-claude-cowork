@@ -2,6 +2,10 @@
 name: Claude - Tool Call from Unapproved MCP Server
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Matches every MCP tool call until you replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>`.** This High alert also feeds `Claude - Agent Off the Rails (Correlation)` and the composite correlation, so left unfilled it inflates both correlations for everyone who uses MCP tools. Fill it in or keep it disabled.
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect tool calls routed through an MCP server that is not on your approved list (a shadow MCP server).
 

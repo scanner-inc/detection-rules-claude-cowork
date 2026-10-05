@@ -2,6 +2,11 @@
 name: Claude - Unapproved IP with Risky Tool Use (Correlation)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Never fires until you replace `00000000-0000-0000-0000-000000000000`** in the first line of the query with your `_detections` index ID (see "Values you should supply").
+  * It only fires if its contributing rules are enabled. Fill in their placeholders first: a contributor left unfilled matches everything and makes this correlation fire far more often.
+  * Needs the Claude Compliance API activity feed ingested.
+
   ## Goal
   Detect a user who is active from an unapproved IP and, in the same hour, has high-risk tool calls accepted.
 

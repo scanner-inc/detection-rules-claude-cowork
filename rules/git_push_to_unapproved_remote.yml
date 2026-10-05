@@ -2,6 +2,11 @@
 name: Claude - Git Push to Unapproved Remote
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped with `origin` and `upstream` as the approved remotes. If your remotes use other names, legitimate pushes fire as High alerts until you update the two `^(origin|upstream)$` regexes.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+  * The inline tests use the shipped defaults. If you change them, update the test events too.
+
   ## Goal
   Detect Claude pushing code to, or adding, a git remote other than your approved remote names, a common exfiltration and supply-chain step.
 

@@ -2,6 +2,11 @@
 name: Claude - Unapproved Plugin Loaded
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Matches every plugin load until you replace the `<approved-plugin-N>` / `<approved-marketplace-N>` pairs.**
+  * If your pipeline redacts `plugin.name` or `marketplace.name`, this rule cannot tell plugins apart.
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect a Claude plugin being loaded that is not on your approved list.
 

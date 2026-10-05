@@ -2,6 +2,11 @@
 name: Claude - SSRF or Injection Marker in Tool Arguments
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Never fires until you replace `<marker-1>` and `<marker-2>`** with the strings you want to catch. There is no default list.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect tool calls whose arguments contain known SSRF or injection payload markers, across any tool.
 

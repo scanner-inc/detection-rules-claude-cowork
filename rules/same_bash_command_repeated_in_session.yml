@@ -2,6 +2,10 @@
 name: Claude - Same Bash Command Repeated in Session
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
   ## Goal
   Detect the same kind of shell command being run many times in one session, even when its arguments change each time (for example enrolling many devices or re-creating pods).
 

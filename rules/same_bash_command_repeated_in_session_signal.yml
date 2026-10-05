@@ -2,6 +2,10 @@
 name: Claude - Same Bash Command Repeated in Session (Signal)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
   ## Goal
   Signal version of the repeated Bash command rule.
 

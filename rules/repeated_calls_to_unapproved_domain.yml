@@ -2,6 +2,11 @@
 name: Claude - Repeated Calls to Unapproved Domain
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 10 times fires, including package registries and GitHub.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect repeated outbound calls from shell commands to a domain that is not on your approved list, a possible command-and-control or exfiltration channel.
 

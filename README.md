@@ -17,7 +17,9 @@ The pack has two purposes:
 
 All rules ship with `enabled: Staging`. Watch them in `_detections` for a few
 days, tune thresholds and fill in your own values, then switch them to
-`Active`.
+`Active`. Read [Before you enable](#before-you-enable-what-fails-out-of-the-box)
+first: several rules match everything, or never fire, until they are
+configured.
 
 ---
 
@@ -180,6 +182,63 @@ sensitive, so you may want to raise its threshold from 5.
 | `Claude - Agent Off the Rails (Correlation)` | 2+ of these alerts on the same user within an hour | `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server`, `Claude - Repeated API Auth Failures (401/403)` |
 | `Claude - Unapproved IP with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Compliance API Activity from Unapproved IP (Signal)`, `Claude - Accepted High-Risk Tool Calls (Signal)` |
 | `Claude - Role Change with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Accepted High-Risk Tool Calls (Signal)`, `Claude - Role or Permission Change (Signal)` |
+
+---
+
+## Before you enable: what fails out of the box
+
+Read this before switching any rule from `Staging` to `Active`. Each affected
+rule also starts its description with a **"Before you enable"** section.
+
+**Matches everything until you fill in its placeholders.** Left as shipped,
+these alert on normal activity:
+
+* `Claude - Unapproved Model Used` (every API request)
+* `Claude - Tool Call from Unapproved MCP Server` (every MCP tool call; this
+  High alert also feeds `Agent Off the Rails` and the composite, so left
+  unfilled it inflates both correlations)
+* `Claude - Unapproved MCP Server Connected` (every MCP connection)
+* `Claude - Session in Unapproved Repository` (every repository)
+* `Claude - Unapproved Plugin Loaded` (every plugin load)
+* `Claude - Repeated Calls to Unapproved Domain` and its (Signal) (every
+  domain counts as unapproved)
+* `Claude - Compliance API Activity from Unapproved IP (Signal)` (all activity)
+* `Claude - Compliance API Accessed by Unapproved Actor` (every access)
+
+**Never fires until configured:**
+
+* `Claude - SSRF or Injection Marker in Tool Arguments` (no default markers)
+* All four correlation rules, until you set your `_detections` index ID. They
+  also need their contributing rules enabled and configured.
+
+**Claude Code: never fires without telemetry settings** (see
+[Claude Code telemetry settings](#claude-code-telemetry-settings)):
+
+* Without `OTEL_LOG_TOOL_DETAILS=1`: every rule that reads commands or file
+  paths. That is the Risky Bash, Git Push, Token Minting, Credential File,
+  Same Bash Command, Unapproved Domain, SSRF Marker, Sandbox Disabled, Write
+  to Sensitive Path, Read Credential File and Protected Branch rules.
+* Without `OTEL_METRICS_INCLUDE_REPOSITORY=true`: `Claude - Session in
+  Unapproved Repository`.
+
+**Never fires without the Claude Compliance API activity feed:** the two
+Compliance API signals, `Claude - Compliance API Accessed by Unapproved Actor`
+and the two correlations built on them.
+
+**Affected by redaction:** if your pipeline redacts `user.email`, the two
+Compliance API correlations cannot match people; if it redacts `to_mode`,
+`Claude - Repeated Escalation to bypassPermissions` never fires; if it redacts
+plugin or marketplace names, `Claude - Unapproved Plugin Loaded` cannot tell
+plugins apart.
+
+**Works as shipped, but review the defaults:** approved git remotes (`origin`,
+`upstream`), protected branches (`main`, `master`), the risky command list, the
+token-minting regex and the credential and persistence path regexes. With
+other remote names, for example, legitimate pushes fire as High alerts.
+
+**Inline tests:** the tests use the shipped placeholders and defaults. When you
+change a value in a query, update that rule's test events too, or
+`scanner-cli run-tests` fails.
 
 ---
 

@@ -2,6 +2,11 @@
 name: Claude - Compliance API Accessed by Unapproved Actor
 enabled: Staging
 description: |-
+  ## Before you enable
+  * **Matches every Compliance API access until you replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>`.**
+  * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires.
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
   ## Goal
   Detect the Claude Compliance API being used by someone outside the set of people and service identities expected to use it. The Compliance API can export session transcripts and other sensitive data.
 

@@ -2,6 +2,10 @@
 name: Claude - Risky Bash Command Proposed
 enabled: Staging
 description: |-
+  ## Before you enable
+  * Works as shipped. Review the command list (`curl`, `wget`, `base64`, `chmod`).
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
   ## Goal
   Detect Claude proposing shell commands commonly used for download, encoding or permission changes (curl, wget, base64, chmod).
 

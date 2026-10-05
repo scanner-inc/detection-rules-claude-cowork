@@ -2,6 +2,9 @@
 name: Claude - Accepted High-Risk Tool Calls (Signal)
 enabled: Staging
 description: |-
+  ## Before you enable
+  * If your pipeline redacts `user.email`, the two Compliance API correlations cannot match this signal to a person, so they never fire.
+
   ## Goal
   Signal: a user had high-risk tool calls accepted during the window.
 
