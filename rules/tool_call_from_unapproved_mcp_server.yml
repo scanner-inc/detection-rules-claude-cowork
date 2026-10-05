@@ -3,14 +3,15 @@ name: Claude - Tool Call from Unapproved MCP Server
 enabled: Staging
 description: |-
   ## Before you enable
-  * **Matches every MCP tool call until you replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>`.** This High alert also feeds `Claude - Agent Off the Rails (Correlation)` and the composite correlation, so left unfilled it inflates both correlations for everyone who uses MCP tools. Fill it in or keep it disabled.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+  * **Stays silent until you replace `<approved-mcp-server-uuid-1>` with a real approved MCP server UUID.** Use find-and-replace: the placeholder appears twice, in the allowlist line and in the guard line that keeps the rule silent until it is configured. Replace `<approved-mcp-server-uuid-2>` too, or delete it from the allowlist.
+  * Once configured, it alerts on every MCP tool call through a server that is not on your list. It feeds `Claude - Agent Off the Rails (Correlation)` and the composite correlation, so an incomplete list also raises those correlations.
+  * As shipped, the inline tests only check that the rule stays silent. After you fill in your servers, add a test with an unapproved server that should fire.
 
   ## Goal
   Detect tool calls routed through an MCP server that is not on your approved list (a shadow MCP server).
 
   ## Strategy
-  Matches `tool_decision` events from MCP tools (`tool_source` = `sdk_host_builtin_mcp`) whose `tool_parameters` do not contain an approved MCP server ID. Groups by user and session so each session alerts once per window.
+  Matches `tool_decision` events from MCP tools (`tool_source` = `sdk_host_builtin_mcp`) whose `tool_parameters` do not contain an approved MCP server ID. Groups by user and session so each session alerts once per window. A guard line keeps the rule silent while `<approved-mcp-server-uuid-1>` is still a placeholder, so an unconfigured rule cannot flood the correlations.
 
   ## Triage and response
   1. Identify the MCP server name and tool from `tool_parameters`.
@@ -18,7 +19,7 @@ description: |-
   3. If unapproved, remove the server and review what data its tools could access.
 
   ## Values you should supply
-  * Approved MCP server IDs. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved servers (not their display names). Until you do, every MCP tool call will match.
+  * Approved MCP server IDs. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved servers (not their display names). Until you replace `<approved-mcp-server-uuid-1>`, the rule never fires.
 
   ## Notes and limitations
   * `mcp_server_connection` events carry no server identity, so this rule relies on `tool_decision`.
@@ -28,6 +29,8 @@ query_text: |-
   log.attributes.event.name:tool_decision
   log.attributes.tool_source:sdk_host_builtin_mcp
   not log.attributes.tool_parameters:("<approved-mcp-server-uuid-1>" or "<approved-mcp-server-uuid-2>")
+  | eval unconfigured = if(regex.is_match("<approved-mcp-server-uuid-1>", /^<approved-/), 1, 0)
+  | where unconfigured = 0
   | stats count() as shadow_mcp_calls by log.attributes.user.id, log.attributes.session.id
   | rename(log.attributes.user.id as entity_user_id)
 time_range_s: 3600
@@ -43,11 +46,12 @@ tags:
 - tactics.ta0003.persistence
 - techniques.t1195.supply_chain_compromise
 tests:
-  - name: "Tool call through an MCP server that is not on the approved list fires"
+  - name: "As shipped, the rule stays silent until the approved server list is filled in"
     now_timestamp: "2026-09-24T12:00:00.000Z"
     dataset_inline: |
       {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"mcp__9b1e2c4a-unknown-server__search","tool_source":"sdk_host_builtin_mcp","decision":"accept","source":"config","tool_parameters":"{\"mcp_server_name\":\"9b1e2c4a-unknown-server\",\"mcp_tool_name\":\"search\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
-    expected_detection_result: true
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"mcp__7d0f55aa-another-server__search","tool_source":"sdk_host_builtin_mcp","decision":"accept","source":"config","tool_parameters":"{\"mcp_server_name\":\"7d0f55aa-another-server\",\"mcp_tool_name\":\"search\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
   - name: "Tool call through an approved MCP server does not fire"
     now_timestamp: "2026-09-24T12:00:00.000Z"
     dataset_inline: |

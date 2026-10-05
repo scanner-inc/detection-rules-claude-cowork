@@ -7,10 +7,10 @@ description: |-
   * It only fires if its contributing rules are enabled. Fill in their placeholders first: a contributor left unfilled matches everything and makes this correlation fire far more often.
 
   ## Goal
-  Detect two or more agent-misbehavior alerts firing for the same user within an hour.
+  Detect two or more agent-misbehavior alerts firing for the same user within two hours.
 
   ## Strategy
-  Queries `_detections` for alerts tagged `correlation.agent_off_rails`, which are raised by four standalone alerts: `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server` and `Claude - Repeated API Auth Failures (401/403)`. Fires when 2 or more distinct rules hit the same `entity_user_id`.
+  Queries `_detections` for alerts tagged `correlation.agent_off_rails`, which are raised by four standalone alerts: `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server` and `Claude - Repeated API Auth Failures (401/403)`. Fires when 2 or more distinct rules hit the same `entity_user_id`. Looks back 2 hours and runs hourly, so a pair that straddles an hour boundary (for example 10:55 and 11:05) is still caught; the 2-hour dedup window stops the same pair alerting twice.
 
   ## Triage and response
   1. Review the contributing alerts together.
@@ -22,7 +22,7 @@ description: |-
 
   ## Notes and limitations
   * Groups by user, not session, so two unrelated sessions can combine.
-  * Checks co-occurrence within the hour, not a tight 10-minute window.
+  * Checks co-occurrence within two hours, not a tight 10-minute window.
   * Consider raising the threshold to 3 once you see how often pairs co-fire benignly.
 severity: High
 query_text: |-
@@ -30,8 +30,9 @@ query_text: |-
   tags[*]:correlation.agent_off_rails
   | stats countdistinct(name) as rule_count by results_table.rows[0].entity_user_id
   | where rule_count >= 2
-time_range_s: 3600
+time_range_s: 7200
 run_frequency_s: 3600
+dedup_window_s: 7200
 event_sink_keys:
 - high_severity_alerts
 tags:
@@ -47,6 +48,18 @@ tests:
       {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Repeated Tool Execution Failures","severity":"Medium","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
       {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Tool Call from Unapproved MCP Server","severity":"High","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
     expected_detection_result: true
+  - name: "Two alerts 70 minutes apart (across an hour boundary) fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Repeated Tool Execution Failures","severity":"Informational","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:49:00.000Z","name":"Claude - Tool Call from Unapproved MCP Server","severity":"Informational","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T09:49:00.000Z","end":"2026-09-24T10:49:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: true
+  - name: "Two alerts more than 2 hours apart do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Repeated Tool Execution Failures","severity":"Informational","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T09:46:40.000Z","name":"Claude - Tool Call from Unapproved MCP Server","severity":"Informational","tags":["correlation.agent_off_rails"],"detected_in_time_range":{"start":"2026-09-24T08:46:40.000Z","end":"2026-09-24T09:46:40.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: false
   - name: "The same alert firing twice does not fire"
     now_timestamp: "2026-09-24T12:00:00.000Z"
     dataset_inline: |

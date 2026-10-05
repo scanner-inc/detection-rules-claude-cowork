@@ -179,9 +179,9 @@ sensitive, so you may want to raise its threshold from 5.
 
 | Correlation | Fires when | Contributors |
 |---|---|---|
-| `Claude - Agent Off the Rails (Correlation)` | 2+ of these alerts on the same user within an hour | `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server`, `Claude - Repeated API Auth Failures (401/403)` |
-| `Claude - Unapproved IP with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Compliance API Activity from Unapproved IP (Signal)`, `Claude - Accepted High-Risk Tool Calls (Signal)` |
-| `Claude - Role Change with Risky Tool Use (Correlation)` | both signals on the same email within an hour | `Claude - Accepted High-Risk Tool Calls (Signal)`, `Claude - Role or Permission Change (Signal)` |
+| `Claude - Agent Off the Rails (Correlation)` | 2+ of these alerts on the same user within two hours | `Claude - High Auto-Accept Ratio on High-Risk Tools`, `Claude - Repeated Tool Execution Failures`, `Claude - Tool Call from Unapproved MCP Server`, `Claude - Repeated API Auth Failures (401/403)` |
+| `Claude - Unapproved IP with Risky Tool Use (Correlation)` | both signals on the same email within two hours | `Claude - Compliance API Activity from Unapproved IP (Signal)`, `Claude - Accepted High-Risk Tool Calls (Signal)` |
+| `Claude - Role Change with Risky Tool Use (Correlation)` | both signals on the same email within two hours | `Claude - Accepted High-Risk Tool Calls (Signal)`, `Claude - Role or Permission Change (Signal)` |
 
 ---
 
@@ -194,9 +194,6 @@ rule also starts its description with a **"Before you enable"** section.
 these alert on normal activity:
 
 * `Claude - Unapproved Model Used` (every API request)
-* `Claude - Tool Call from Unapproved MCP Server` (every MCP tool call; this
-  High alert also feeds `Agent Off the Rails` and the composite, so left
-  unfilled it inflates both correlations)
 * `Claude - Unapproved MCP Server Connected` (every MCP connection)
 * `Claude - Session in Unapproved Repository` (every repository)
 * `Claude - Unapproved Plugin Loaded` (every plugin load)
@@ -208,6 +205,10 @@ these alert on normal activity:
 **Never fires until configured:**
 
 * `Claude - SSRF or Injection Marker in Tool Arguments` (no default markers)
+* `Claude - Tool Call from Unapproved MCP Server`, until you replace
+  `<approved-mcp-server-uuid-1>`. A guard line keeps it silent while the
+  placeholder is unfilled, because this High alert feeds `Agent Off the Rails`
+  and the composite. Use find-and-replace: the placeholder appears twice.
 * All four correlation rules, until you set your `_detections` index ID. They
   also need their contributing rules enabled and configured.
 
@@ -224,6 +225,12 @@ these alert on normal activity:
 **Never fires without the Claude Compliance API activity feed:** the two
 Compliance API signals, `Claude - Compliance API Accessed by Unapproved Actor`
 and the two correlations built on them.
+
+**Needs tuning for your environment:** `Claude - Low-Activity User Running
+Risky Tools` fires for users with 5 or fewer tool calls in 24 hours who ran a
+risky tool. Where many people use Claude only occasionally, that is normal
+light use. Watch it in Staging and adjust the threshold, the lookback or the
+excluded users before switching it to `Active`.
 
 **Affected by redaction:** if your pipeline redacts `user.email`, the two
 Compliance API correlations cannot match people; if it redacts `to_mode`,
@@ -256,7 +263,7 @@ the exact instructions.
 | Rule | Placeholder in query | What to put there |
 |---|---|---|
 | `Claude - Unapproved Model Used` | `<approved-model-1>`, `<approved-model-2>` | Your approved Claude model IDs |
-| `Claude - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | Cowork: UUIDs (not display names) of approved MCP servers |
+| `Claude - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | Cowork: UUIDs (not display names) of approved MCP servers. The rule stays silent until `<approved-mcp-server-uuid-1>` is replaced (it appears twice) |
 | `Claude - Unapproved MCP Server Connected` | `<approved-mcp-server-1>`, `<approved-mcp-server-2>` | Claude Code: approved MCP server names as they appear in `server_name` |
 | `Claude - Session in Unapproved Repository` | `<approved-org-1>`, `<approved-org-2>` | Your GitHub/GitLab organization names (repository owners) |
 | `Claude - SSRF or Injection Marker in Tool Arguments` | `<marker-1>`, `<marker-2>` | SSRF/injection strings to catch. No default; the rule is inert until filled |
@@ -329,7 +336,7 @@ data. Expect to adjust them after watching `_detections` in Staging.
 | Claude - High Auto-Accept Ratio on High-Risk Tools | Alert | Medium | Both | 1h / 1h | [`high_auto_accept_ratio_on_high_risk_tools.yml`](rules/high_auto_accept_ratio_on_high_risk_tools.yml) |
 | Claude - High Tool Call Volume in Session | Alert | Medium | Both | 1h / 1h | [`high_tool_call_volume_in_session.yml`](rules/high_tool_call_volume_in_session.yml) |
 | Claude - Human Reviewer Approving Everything | Alert | Medium | Both | 1h / 1h | [`human_reviewer_approving_everything.yml`](rules/human_reviewer_approving_everything.yml) |
-| Claude - Low-Activity User Running Risky Tools | Alert | Medium | Both | 1h / 1h | [`low_activity_user_running_risky_tools.yml`](rules/low_activity_user_running_risky_tools.yml) |
+| Claude - Low-Activity User Running Risky Tools | Alert | Medium | Both | 24h / 1h | [`low_activity_user_running_risky_tools.yml`](rules/low_activity_user_running_risky_tools.yml) |
 | Claude - Read Tool Opened Credential File | Alert | High | Code | 1h / 15m | [`read_tool_opened_credential_file.yml`](rules/read_tool_opened_credential_file.yml) |
 | Claude - Repeated API Auth Failures (401/403) | Alert | Medium | Both | 1h / 1h | [`repeated_api_auth_failures.yml`](rules/repeated_api_auth_failures.yml) |
 | Claude - Repeated Calls to Unapproved Domain | Alert | Medium | Both | 1h / 15m | [`repeated_calls_to_unapproved_domain.yml`](rules/repeated_calls_to_unapproved_domain.yml) |
@@ -359,10 +366,10 @@ data. Expect to adjust them after watching `_detections` in Staging.
 | Claude - Role or Permission Change (Signal) | Signal | Informational | Cowork | 1h / 1h | [`role_or_permission_change_signal.yml`](rules/role_or_permission_change_signal.yml) |
 | Claude - Same Bash Command Repeated in Session (Signal) | Signal | Informational | Both | 1h / 15m | [`same_bash_command_repeated_in_session_signal.yml`](rules/same_bash_command_repeated_in_session_signal.yml) |
 | Claude - User Active Across Many Sessions (Signal) | Signal | Informational | Both | 1h / 1h | [`user_active_across_many_sessions_signal.yml`](rules/user_active_across_many_sessions_signal.yml) |
-| Claude - Agent Off the Rails (Correlation) | Correlation | High | Both | 1h / 1h | [`agent_off_the_rails_correlation.yml`](rules/agent_off_the_rails_correlation.yml) |
+| Claude - Agent Off the Rails (Correlation) | Correlation | High | Both | 2h / 1h | [`agent_off_the_rails_correlation.yml`](rules/agent_off_the_rails_correlation.yml) |
 | Claude - Multi-Stage Agent Compromise (Critical Correlation) | Correlation | Critical | Both | 24h / 1h | [`multi_stage_agent_compromise_critical_correlation.yml`](rules/multi_stage_agent_compromise_critical_correlation.yml) |
-| Claude - Role Change with Risky Tool Use (Correlation) | Correlation | High | Cowork | 1h / 1h | [`role_change_with_risky_tool_use_correlation.yml`](rules/role_change_with_risky_tool_use_correlation.yml) |
-| Claude - Unapproved IP with Risky Tool Use (Correlation) | Correlation | High | Cowork | 1h / 1h | [`unapproved_ip_with_risky_tool_use_correlation.yml`](rules/unapproved_ip_with_risky_tool_use_correlation.yml) |
+| Claude - Role Change with Risky Tool Use (Correlation) | Correlation | High | Cowork | 2h / 1h | [`role_change_with_risky_tool_use_correlation.yml`](rules/role_change_with_risky_tool_use_correlation.yml) |
+| Claude - Unapproved IP with Risky Tool Use (Correlation) | Correlation | High | Cowork | 2h / 1h | [`unapproved_ip_with_risky_tool_use_correlation.yml`](rules/unapproved_ip_with_risky_tool_use_correlation.yml) |
 
 ---
 
