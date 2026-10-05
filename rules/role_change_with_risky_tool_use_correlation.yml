@@ -34,3 +34,22 @@ tags:
 - product.claude_cowork
 - correlation
 - tactics.ta0004.privilege_escalation
+tests:
+  - name: "Both signals for the same person fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Role or Permission Change (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: true
+  - name: "Only one of the two signals does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: false
+  - name: "The two signals for different people do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Role or Permission Change (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.role_change_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"bob@example.com"}]}}
+    expected_detection_result: false

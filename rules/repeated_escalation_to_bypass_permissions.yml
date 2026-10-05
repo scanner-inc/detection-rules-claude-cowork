@@ -35,3 +35,25 @@ tags:
 - tactics.ta0004.privilege_escalation
 - tactics.ta0005.defense_evasion
 - techniques.t1562.001.disable_or_modify_tools
+tests:
+  - name: "Three switches into bypassPermissions in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "A single deliberate switch (plus one more) does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Switches to other modes do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:57:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

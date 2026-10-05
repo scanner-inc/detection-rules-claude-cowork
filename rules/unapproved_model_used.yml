@@ -30,3 +30,20 @@ tags:
 - product.claude_cowork
 - product.claude_code
 - tactics.ta0005.defense_evasion
+tests:
+  - name: "Request to a model not on the approved list fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"claude-unlisted-model","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Requests to approved models do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"<approved-model-1>","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"<approved-model-2>","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Request older than the 5-minute window does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:45:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"claude-unlisted-model","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

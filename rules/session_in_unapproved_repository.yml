@@ -33,3 +33,20 @@ tags:
 - source.claude
 - product.claude_code
 - tactics.ta0010.exfiltration
+tests:
+  - name: "Session in a repository owned by an unapproved org fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"someone-personal","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Sessions in approved orgs do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"<approved-org-1>","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"<approved-org-2>","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Events with no repository owner do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

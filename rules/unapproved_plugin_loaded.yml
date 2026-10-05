@@ -34,3 +34,20 @@ tags:
 - product.claude_code
 - tactics.ta0003.persistence
 - techniques.t1195.supply_chain_compromise
+tests:
+  - name: "Unknown plugin from an unknown marketplace fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"quick-helper","marketplace.name":"random-marketplace","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Approved plugin name from an unapproved marketplace fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-1>","marketplace.name":"random-marketplace","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Approved plugin/marketplace pairs do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-1>","marketplace.name":"<approved-marketplace-1>","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-2>","marketplace.name":"<approved-marketplace-2>","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

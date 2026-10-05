@@ -36,3 +36,20 @@ tags:
 - product.claude_code
 - tactics.ta0003.persistence
 - techniques.t1195.supply_chain_compromise
+tests:
+  - name: "Connecting to an unapproved MCP server fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"shadow-tools","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Connecting to approved MCP servers does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"<approved-mcp-server-1>","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"<approved-mcp-server-2>","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Disconnect events do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"disconnected","server_name":"shadow-tools","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

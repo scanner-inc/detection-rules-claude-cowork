@@ -6,7 +6,7 @@ description: |-
   Detect a session that both mints a token or credential and pushes to an unapproved git remote, a supply-chain compromise pattern.
 
   ## Strategy
-  In one query over Bash `tool_decision` events, flags token-minting commands and unapproved pushes (same logic as `Claude - Git Push to Unapproved Remote`), and fires when both occur in the same session within the window.
+  In one query over Bash `tool_decision` events, flags token-minting commands and unapproved pushes or remote changes (same logic as `Claude - Git Push to Unapproved Remote`: the first and last push in a command are checked, flags are skipped and a bare `git push` counts as approved), and fires when both occur in the same session within the window.
 
   ## Triage and response
   1. Identify the token that was minted and revoke it.
@@ -14,20 +14,22 @@ description: |-
   3. Treat as a likely supply-chain incident until proven otherwise.
 
   ## Values you should supply
-  * Token-minting command patterns. The regex `gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create` is a starting guess; replace it with the commands your agents actually use to obtain tokens.
-  * Approved git remote aliases (`origin`, `upstream` in `push (origin|upstream)`); keep in sync with `Claude - Git Push to Unapproved Remote`.
+  * Token-minting command patterns. The regex `gh auth token|access_tokens|sts get-session-token|auth print-access-token|vault token create` is a starting guess (a plain `gh api` call is not counted, since it is too common; `gh api` calls to an `access_tokens` endpoint are); replace it with the commands your agents actually use to obtain tokens.
+  * Approved git remote aliases (`origin`, `upstream` in the two `^(origin|upstream)$` regexes); keep in sync with `Claude - Git Push to Unapproved Remote`. The inline tests use these defaults, so update them too.
 
   ## Notes and limitations
   * Co-occurrence in the same session and window, not strict ordering.
-  * The `cmd = coalesce(regex.extract(...))` step copies `tool_parameters` into a guaranteed non-null string; `regex.is_match` rejects possibly-null input.
+  * The `cmd = coalesce(regex.extract(...))` step reads `full_command` (falling back to the whole `tool_parameters`) into a guaranteed non-null string; `regex.is_match` rejects possibly-null input.
   * Only covers token minting through Bash; minting through an MCP tool (for example a GitHub MCP server) is not covered.
 severity: High
 query_text: |-
   log.attributes.event.name:tool_decision
   log.attributes.tool_name:Bash
-  | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), "")
-  | eval is_mint = if(regex.is_match(cmd, /gh api|access_tokens|sts get-session-token|auth print-access-token|vault token create/), 1, 0)
-  | eval is_bad_push = if(regex.is_match(cmd, /git (push|remote add|remote set-url)/) and not regex.is_match(cmd, /push (origin|upstream)/), 1, 0)
+  | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"full_command":\s*"((?:[^"\\]|\\.)*)"/, 1), coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), ""))
+  | eval r1 = coalesce(regex.extract(cmd, /git\s+push(?:\s+-\S+)*\s+([^\s"\\;&|\-][^\s"\\;&|]*)/, 1), "")
+  | eval r2 = coalesce(regex.extract(cmd, /[\s\S]*git\s+push(?:\s+-\S+)*\s+([^\s"\\;&|\-][^\s"\\;&|]*)/, 1), "")
+  | eval is_mint = if(regex.is_match(cmd, /gh auth token|access_tokens|sts get-session-token|auth print-access-token|vault token create/), 1, 0)
+  | eval is_bad_push = if((r1 != "" and not regex.is_match(r1, /^(origin|upstream)$/)) or (r2 != "" and not regex.is_match(r2, /^(origin|upstream)$/)) or regex.is_match(cmd, /git\s+remote\s+(add|set-url)\s/), 1, 0)
   | stats sum(is_mint) as mints, sum(is_bad_push) as bad_pushes by log.attributes.user.id, log.attributes.session.id
   | where mints >= 1 and bad_pushes >= 1
   | rename(log.attributes.user.id as entity_user_id)
@@ -43,3 +45,34 @@ tags:
 - correlation.composite_critical
 - tactics.ta0010.exfiltration
 - techniques.t1195.supply_chain_compromise
+tests:
+  - name: "gh auth token then push to an unknown remote in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"gh\",\"full_command\":\"gh auth token > /tmp/t\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:59:10.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push evil main\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "STS token then a compound push that ends at an unknown remote fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"aws\",\"full_command\":\"aws sts get-session-token --duration-seconds 3600\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:59:10.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push origin main && git push evil main\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Minting a token and pushing to origin with -u does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"gh\",\"full_command\":\"gh auth token > /tmp/t\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:59:10.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push -u origin feat\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Mint and unapproved push in different sessions do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"gh\",\"full_command\":\"gh auth token\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:59:10.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-2","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push evil main\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "A plain gh api call is not treated as minting"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"gh\",\"full_command\":\"gh api repos/acme/web/pulls\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:59:10.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push evil main\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

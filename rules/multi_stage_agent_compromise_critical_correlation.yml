@@ -41,3 +41,30 @@ tags:
 - tactics.ta0001.initial_access
 - tactics.ta0006.credential_access
 - tactics.ta0010.exfiltration
+tests:
+  - name: "Five different contributing rules for one user within a day fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T08:30:00.000Z","name":"Claude - High Tool Call Volume in Session (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T07:30:00.000Z","end":"2026-09-24T08:30:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: true
+  - name: "Four different contributing rules does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: false
+  - name: "Five contributing rules spread over two users does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T08:30:00.000Z","name":"Claude - High Tool Call Volume in Session (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T07:30:00.000Z","end":"2026-09-24T08:30:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+    expected_detection_result: false

@@ -206,13 +206,13 @@ the exact instructions.
 | `Claude - Compliance API Activity from Unapproved IP (Signal)` | `<approved-ip-1>`, `<approved-ip-2>` | Office egress, VPN and cloud workstation IPs (literal IPs, no CIDR) |
 | `Claude - Compliance API Accessed by Unapproved Actor` | `<approved-compliance-user-1>`, `<approved-compliance-user-2>` | Emails of people and automation allowed to use the Compliance API |
 | `Claude - Git Push to Unapproved Remote` | `origin`, `upstream` (pre-filled) | Your approved git remote alias names |
-| `Claude - Token Minting with Unapproved Git Push` | Minting regex + `origin\|upstream` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases |
+| `Claude - Token Minting with Unapproved Git Push` | Minting regex + `^(origin\|upstream)$` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases |
 | `Claude - Agent Committed to Protected Branch` | `main`, `master` (pre-filled) | Your protected branch names |
 | `Claude - Write to Sensitive or Persistence Path` | Path regex (pre-filled) | Optional: add more persistence or config paths |
-| `Claude - Read Tool Opened Credential File` | Path regex (pre-filled) | Optional: add credential paths, or drop `.env` if reading it is routine |
+| `Claude - Read Tool Opened Credential File` | Path regex (pre-filled) | Optional: add credential paths, or drop `.env` if reading it is routine (`.env.example` and similar templates are already excluded) |
 | `Claude - High Auto-Accept Ratio on High-Risk Tools` | `Bash`, `Write`, `Edit`, `NotebookEdit` (pre-filled) | High-risk tool list; also used by the (Signal) sibling, Human Reviewer Approving Everything and Accepted High-Risk Tool Calls (Signal) |
 | `Claude - Risky Bash Command Proposed` | `curl`, `wget`, `base64`, `chmod` (pre-filled) | Risky command names for your environment. Also in the (Signal) sibling |
-| `Claude - Credential File or Cloud Metadata Access` | Path/IP list (pre-filled) | Optional: add more credential paths |
+| `Claude - Credential File or Cloud Metadata Access` | Path/IP regex (pre-filled) | Optional: add more credential paths |
 | All four correlation rules | `00000000-0000-0000-0000-000000000000` in the `@index=` line | Your tenant's `_detections` index ID. Tab-complete `@index=_detections` in the Scanner search box to get it |
 
 Rows marked *(pre-filled)* work as shipped, but the defaults are generic. Review them for your environment. The correlations also inherit the values of the rules that feed them.
@@ -317,13 +317,20 @@ The included GitHub Actions workflow (`.github/workflows/validate-rules.yml`)
 validates rules on pull requests. It needs the `SCANNER_RULE_VALIDATION_API_URL`
 and `SCANNER_RULE_VALIDATION_API_KEY` repository secrets.
 
-To validate locally:
+To validate and test locally:
 
 ```
 pip install scanner-cli
 export SCANNER_API_URL=... SCANNER_API_KEY=...
-for f in rules/*.yml; do scanner-cli validate -f "$f"; done
+scanner-cli validate -d rules -r
+scanner-cli run-tests -d rules -r
 ```
+
+Every rule has inline `tests:` with events that should fire and events that
+should not. The tests use the shipped placeholder and default values (for
+example `<approved-model-1>`, or `origin` and `upstream` as approved git
+remotes). When you replace those values in a query, update the matching test
+events too, or `run-tests` will fail.
 
 ### Event sinks
 

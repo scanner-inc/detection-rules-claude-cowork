@@ -35,3 +35,20 @@ tags:
 - source.claude
 - product.claude_code
 - tactics.ta0040.impact
+tests:
+  - name: "Commit on main fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42","tool_input":"{\"command\":\"git commit -m 'wip'\"}","vcs.ref.head.name":"main","vcs.ref.head.type":"branch","vcs.ref.head.revision":"3f2a9c1","vcs.repository.name":"web-app"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Commit on master fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42","tool_input":"{\"command\":\"git commit -m 'wip'\"}","vcs.ref.head.name":"master","vcs.ref.head.type":"branch","vcs.ref.head.revision":"3f2a9c1","vcs.repository.name":"web-app"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Commits on feature branches, including feature/main, do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42","tool_input":"{\"command\":\"git commit -m 'wip'\"}","vcs.ref.head.name":"feature/main","vcs.ref.head.type":"branch","vcs.ref.head.revision":"3f2a9c1","vcs.repository.name":"web-app"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42","tool_input":"{\"command\":\"git commit -m 'wip'\"}","vcs.ref.head.name":"develop","vcs.ref.head.type":"branch","vcs.ref.head.revision":"3f2a9c1","vcs.repository.name":"web-app"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
