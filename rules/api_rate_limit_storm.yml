@@ -14,7 +14,7 @@ description: |-
   3. Stop the session if the load is unexpected.
 
   ## Notes and limitations
-  * `api_error` is documented in both the Claude Code and Cowork monitoring docs but hasn't been seen in a real log sample yet. `status_code` is matched as a string, as the Cowork docs describe.
+  * `api_error` is part of both the Claude Code and Cowork monitoring events. `status_code` is matched as a string, as the Cowork docs describe.
   * The 10-error threshold is a starting point.
 severity: Medium
 query_text: |-

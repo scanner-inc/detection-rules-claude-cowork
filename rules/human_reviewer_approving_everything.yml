@@ -17,7 +17,7 @@ description: |-
   * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`).
 
   ## Notes and limitations
-  * Treats every `source` value other than `config` as a human decision. Only `config` has been confirmed in real samples.
+  * Treats every `source` value other than `config` as a human decision. `config` means the call was approved automatically by configuration.
   * An advisory finding; a careful reviewer who agrees with everything is not malicious.
 severity: Medium
 query_text: |-

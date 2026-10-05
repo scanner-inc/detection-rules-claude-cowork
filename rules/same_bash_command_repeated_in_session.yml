@@ -19,7 +19,7 @@ description: |-
 
   ## Notes and limitations
   * Two different commands that share their first two words are grouped together. A single-word command (for example `id`) is grouped by that word.
-  * The regex reads the `"full_command"` key inside `tool_parameters` (in real logs `bash_command` holds only the program name).
+  * The regex reads the `"full_command"` key inside `tool_parameters` (`bash_command` holds only the program name).
   * The 10-repeat threshold is a starting point.
 severity: Medium
 query_text: |-

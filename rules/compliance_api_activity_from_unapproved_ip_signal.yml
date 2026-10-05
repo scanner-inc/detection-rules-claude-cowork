@@ -20,7 +20,7 @@ description: |-
   * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match.
 
   ## Notes and limitations
-  * Reads the Claude Compliance API activity feed, a separate log source from Claude's OpenTelemetry logs. `actor.ip_address` is documented but not yet seen in a real sample.
+  * Reads the Claude Compliance API activity feed, a separate log source from Claude's OpenTelemetry logs.
 severity: Informational
 query_text: |-
   actor.email_address:*

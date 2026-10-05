@@ -22,7 +22,7 @@ description: |-
   * Approved outbound domains. Replace `<approved-domain-1>|<approved-domain-2>` in the regex with your domains (escape dots, for example `github\.com|pypi\.org`). Until you do, every URL will count as unapproved.
 
   ## Notes and limitations
-  * Bash only. WebFetch is not covered yet because its argument format has not been confirmed.
+  * Bash only. WebFetch calls are not covered.
   * A volume proxy for beaconing: it cannot measure regular timing, and slow beaconing under the threshold is missed.
   * Only the first URL in a command is checked; bare IPs with ports and URLs without a scheme are missed.
 severity: Medium
