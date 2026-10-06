@@ -11,7 +11,7 @@ description: |-
   Detect Claude Code connecting to an MCP server that is not on your approved list.
 
   ## Strategy
-  Matches `mcp_server_connection` events with `status` = `connected` whose `server_name` is not approved, grouped by user, session, server and transport.
+  Matches `mcp_server_connection` events with `status` = `connected` that carry a `server_name` that is not approved, grouped by user, session, server and transport.
 
   ## Triage and response
   1. Identify the server, its transport (`stdio`, `http`, `sse`) and scope (`server_scope`), and whether it came from a plugin (`is_plugin`).
@@ -22,12 +22,13 @@ description: |-
   * Approved MCP server names. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names as they appear in `server_name`. Until you do, every connection will match.
 
   ## Notes and limitations
-  * Claude Code only. Cowork's `mcp_server_connection` events carry no server name; for Cowork use `Claude - Tool Call from Unapproved MCP Server`.
+  * Claude Code only. Cowork's `mcp_server_connection` events carry no server name, so the query requires `server_name` and ignores them; for Cowork use `Claude - Tool Call from Unapproved MCP Server`.
   * Server names are chosen by whoever configures the server, so an attacker can reuse an approved name. Pair with `Claude - Unapproved Plugin Loaded`.
 severity: Medium
 query_text: |-
   log.attributes.event.name:mcp_server_connection
   log.attributes.status:connected
+  log.attributes.server_name:*
   not log.attributes.server_name:("<approved-mcp-server-1>" or "<approved-mcp-server-2>")
   | stats count() as connections by log.attributes.user.id, log.attributes.session.id, log.attributes.server_name, log.attributes.transport_type, log.attributes.server_scope
   | rename(log.attributes.user.id as entity_user_id)
@@ -57,4 +58,9 @@ tests:
     now_timestamp: "2026-09-24T12:00:00.000Z"
     dataset_inline: |
       {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"disconnected","server_name":"shadow-tools","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Cowork connection events without a server name do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","transport_type":"http","server_scope":"dynamic","duration_ms":"120"}},"resource":{"attributes":{"service.name":"cowork"}}}
     expected_detection_result: false
