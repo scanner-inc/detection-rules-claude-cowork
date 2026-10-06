@@ -3,9 +3,15 @@ name: Claude - Compliance API Accessed by Unapproved Actor
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches every Compliance API access until you replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>`.** Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every Compliance API access. To turn it on:
+
+  1. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of the people and automation allowed to use the Compliance API. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Detect the Claude Compliance API being used by someone outside the set of people and service identities expected to use it. The Compliance API can export session transcripts and other sensitive data.

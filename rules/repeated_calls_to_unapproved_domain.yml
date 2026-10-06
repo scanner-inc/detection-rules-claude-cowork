@@ -3,9 +3,15 @@ name: Claude - Repeated Calls to Unapproved Domain
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 10 times fires, including package registries and GitHub. Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would treat every URL as unapproved and alert on any session that calls the same host 10 times, including package registries and GitHub. To turn it on:
+
+  1. Replace `<approved-domain-1>|<approved-domain-2>` with your approved domains as a regex, with dots escaped (for example `github\.com|pypi\.org`). Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Detect repeated outbound calls from shell commands to a domain that is not on your approved list, a possible command-and-control or exfiltration channel.

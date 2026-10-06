@@ -3,9 +3,15 @@ name: Claude - Session in Unapproved Repository
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches every repository until you replace `<approved-org-1>` and `<approved-org-2>`.** Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every repository. To turn it on:
+
+  1. Replace `<approved-org-1>` and `<approved-org-2>` with your GitHub or GitLab organization names. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * Claude Code: needs v2.1.269 or later with `OTEL_METRICS_INCLUDE_REPOSITORY=true`. Without it no repository fields are logged and this rule never fires.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Detect Claude Code being used in a git repository owned by an organization that is not on your approved list, for example a personal or third-party repository on a corporate account.

@@ -3,9 +3,15 @@ name: Claude - Unapproved MCP Server Connected
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches every MCP server connection until you replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>`.** Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every MCP server connection. To turn it on:
+
+  1. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names of your approved MCP servers, as they appear in `server_name`. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1` so MCP server names are logged (see the README's telemetry settings).
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Detect Claude Code connecting to an MCP server that is not on your approved list.

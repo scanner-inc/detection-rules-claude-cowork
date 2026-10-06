@@ -3,8 +3,12 @@ name: Claude - Tool Call from Unapproved MCP Server
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with your approved MCP server UUIDs before switching it to `Staging` or `Active`.** Left unfilled, it matches every MCP tool call. This High alert also feeds `Claude - Agent Off the Rails (Correlation)` and the composite correlation, so switching it on unfilled inflates both correlations for everyone who uses MCP tools.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert (High) on every MCP tool call and feed each one into `Claude - Agent Off the Rails (Correlation)` and the composite correlation. To turn it on:
+
+  1. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved MCP servers (not their display names). Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
 
   ## Goal
   Detect tool calls routed through an MCP server that is not on your approved list (a shadow MCP server).

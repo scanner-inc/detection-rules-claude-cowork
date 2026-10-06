@@ -3,9 +3,15 @@ name: Claude - Unapproved Plugin Loaded
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches every plugin load until you replace the `<approved-plugin-N>` / `<approved-marketplace-N>` pairs.** Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every plugin load. To turn it on:
+
+  1. Replace the `<approved-plugin-N>` / `<approved-marketplace-N>` placeholders with your approved plugin and marketplace names. Each `not (...)` line is one approved pair; add a line for each extra plugin. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * If your pipeline redacts `plugin.name` or `marketplace.name`, this rule cannot tell plugins apart.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Detect a Claude plugin being loaded that is not on your approved list.

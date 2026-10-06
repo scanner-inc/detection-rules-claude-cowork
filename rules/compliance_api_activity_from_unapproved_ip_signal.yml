@@ -3,10 +3,16 @@ name: Claude - Compliance API Activity from Unapproved IP (Signal)
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches all Compliance API activity until you replace `<approved-ip-1>` and `<approved-ip-2>`** with your egress IPs. Switch it to `Staging` or `Active` only after you fill these in.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would count all Compliance API activity as coming from an unapproved IP and feed it into `Claude - Unapproved IP with Risky Tool Use (Correlation)`. To turn it on:
+
+  1. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs (individual IPs; CIDR ranges are not supported). Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
   * For lower cost and no overlap with other sources, add `@index=<your Compliance API index>` as the first line of the query.
   * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires. `Claude - Unapproved IP with Risky Tool Use (Correlation)` then never fires either.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
   Signal: Claude activity from an IP address outside your approved ranges, as recorded by the Claude Compliance API activity feed.

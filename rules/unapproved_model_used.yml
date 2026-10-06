@@ -3,8 +3,12 @@ name: Claude - Unapproved Model Used
 enabled: Paused
 description: |-
   ## Before you enable
-  * **Ships `Paused`.** **Matches every API request until you replace `<approved-model-1>` and `<approved-model-2>`** with your approved model IDs. Left as shipped, it alerts for every active session. Switch it to `Staging` or `Active` only after you fill these in.
-  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every API request. To turn it on:
+
+  1. Replace `<approved-model-1>` and `<approved-model-2>` with your approved Claude model IDs. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
 
   ## Goal
   Detect API requests against a model that is not on your organization's approved list.

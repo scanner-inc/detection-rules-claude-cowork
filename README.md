@@ -206,6 +206,19 @@ placeholders.** Fill them in, then switch them to `Staging`:
 * `Claude - Compliance API Activity from Unapproved IP (Signal)` (all activity)
 * `Claude - Compliance API Accessed by Unapproved Actor` (every access)
 
+To turn on a paused rule:
+
+1. Replace its placeholder values (listed in the rule's "Before you enable"
+   section and in [Values you should supply](#values-you-should-supply)) with
+   your own. Use find-and-replace on the whole file, so the inline tests get the
+   same values and `scanner-cli run-tests` keeps passing.
+2. Change `enabled: Paused` to `enabled: Staging` and push the file.
+3. Watch its results in `_detections` for a few days.
+4. When the results look right, change `enabled` to `Active`.
+
+Paused rules don't run, so they produce no alerts and add nothing to the
+correlations until you turn them on.
+
 **Never fires until configured:**
 
 * `Claude - SSRF or Injection Marker in Tool Arguments` (no default markers)
