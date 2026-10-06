@@ -15,8 +15,9 @@ The pack has two purposes:
    aren't alarming on their own but, together, point to a swarm event. This
    composite is an example meant to inspire your own.
 
-All rules ship with `enabled: Staging`. Watch them in `_detections` for a few
-days, tune thresholds and fill in your own values, then switch them to
+All rules ship with `enabled: Staging`, except `Claude - Tool Call from
+Unapproved MCP Server`, which ships `Paused` (see below). Watch them in
+`_detections` for a few days, tune thresholds and fill in your own values, then switch them to
 `Active`. Read [Before you enable](#before-you-enable-what-fails-out-of-the-box)
 first: several rules match everything, or never fire, until they are
 configured.
@@ -205,10 +206,10 @@ these alert on normal activity:
 **Never fires until configured:**
 
 * `Claude - SSRF or Injection Marker in Tool Arguments` (no default markers)
-* `Claude - Tool Call from Unapproved MCP Server`, until you replace
-  `<approved-mcp-server-uuid-1>`. A guard line keeps it silent while the
-  placeholder is unfilled, because this High alert feeds `Agent Off the Rails`
-  and the composite. Use find-and-replace: the placeholder appears twice.
+* `Claude - Tool Call from Unapproved MCP Server` ships `Paused`. Fill in its
+  approved MCP server UUIDs before switching it to `Staging` or `Active`; left
+  unfilled it matches every MCP tool call, and because this High alert feeds
+  `Agent Off the Rails` and the composite, it would inflate both correlations.
 * All four correlation rules, until you set your `_detections` index ID. They
   also need their contributing rules enabled and configured.
 
@@ -263,7 +264,7 @@ the exact instructions.
 | Rule | Placeholder in query | What to put there |
 |---|---|---|
 | `Claude - Unapproved Model Used` | `<approved-model-1>`, `<approved-model-2>` | Your approved Claude model IDs |
-| `Claude - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | Cowork: UUIDs (not display names) of approved MCP servers. The rule stays silent until `<approved-mcp-server-uuid-1>` is replaced (it appears twice) |
+| `Claude - Tool Call from Unapproved MCP Server` | `<approved-mcp-server-uuid-1>`, `<approved-mcp-server-uuid-2>` | Cowork: UUIDs (not display names) of approved MCP servers. The rule ships `Paused`; fill these in before switching it on |
 | `Claude - Unapproved MCP Server Connected` | `<approved-mcp-server-1>`, `<approved-mcp-server-2>` | Claude Code: approved MCP server names as they appear in `server_name` |
 | `Claude - Session in Unapproved Repository` | `<approved-org-1>`, `<approved-org-2>` | Your GitHub/GitLab organization names (repository owners) |
 | `Claude - SSRF or Injection Marker in Tool Arguments` | `<marker-1>`, `<marker-2>` | SSRF/injection strings to catch. No default; the rule is inert until filled |
