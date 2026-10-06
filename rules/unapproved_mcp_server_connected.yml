@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Unapproved MCP Server Connected
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Matches every MCP server connection until you replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>`.**
+  * **Ships `Paused`.** **Matches every MCP server connection until you replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>`.** Switch it to `Staging` or `Active` only after you fill these in.
   * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1` so MCP server names are logged (see the README's telemetry settings).
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
@@ -19,7 +19,7 @@ description: |-
   3. If unapproved, remove it and review what its tools could reach.
 
   ## Values you should supply
-  * Approved MCP server names. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names as they appear in `server_name`. Until you do, every connection will match.
+  * Approved MCP server names. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names as they appear in `server_name`. Until you do, every connection will match. Keep the rule `Paused` until then.
 
   ## Notes and limitations
   * Claude Code only. Cowork's `mcp_server_connection` events carry no server name, so the query requires `server_name` and ignores them; for Cowork use `Claude - Tool Call from Unapproved MCP Server`.

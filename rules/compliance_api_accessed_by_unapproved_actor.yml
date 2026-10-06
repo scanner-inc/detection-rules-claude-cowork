@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Compliance API Accessed by Unapproved Actor
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Matches every Compliance API access until you replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>`.**
+  * **Ships `Paused`.** **Matches every Compliance API access until you replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>`.** Switch it to `Staging` or `Active` only after you fill these in.
   * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires.
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
@@ -19,7 +19,7 @@ description: |-
   3. If unauthorized, revoke the API key used.
 
   ## Values you should supply
-  * Approved Compliance API users. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of your security/compliance staff and audit automation. Until you do, every access will match.
+  * Approved Compliance API users. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of your security/compliance staff and audit automation. Until you do, every access will match. Keep the rule `Paused` until then.
 
   ## Notes and limitations
   * The activity feed does not record which endpoint was called, so this flags any Compliance API access by an unapproved actor, not specifically transcript exports.

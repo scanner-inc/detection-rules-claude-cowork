@@ -15,12 +15,13 @@ The pack has two purposes:
    aren't alarming on their own but, together, point to a swarm event. This
    composite is an example meant to inspire your own.
 
-All rules ship with `enabled: Staging`, except `Claude - Tool Call from
-Unapproved MCP Server`, which ships `Paused` (see below). Watch them in
-`_detections` for a few days, tune thresholds and fill in your own values, then switch them to
-`Active`. Read [Before you enable](#before-you-enable-what-fails-out-of-the-box)
-first: several rules match everything, or never fire, until they are
-configured.
+Most rules ship with `enabled: Staging`. The nine rules that would match
+everything until you add your own allowlist values ship `Paused`. Watch the
+Staging rules in `_detections` for a few days, tune thresholds and fill in
+your own values, then switch them to `Active`. Read
+[Before you enable](#before-you-enable-what-fails-out-of-the-box) first: it
+lists which rules ship `Paused`, which never fire until configured, and what
+else needs setting up.
 
 ---
 
@@ -188,12 +189,14 @@ sensitive, so you may want to raise its threshold from 5.
 
 ## Before you enable: what fails out of the box
 
-Read this before switching any rule from `Staging` to `Active`. Each affected
+Read this before switching any rule to `Staging` or `Active`. Each affected
 rule also starts its description with a **"Before you enable"** section.
 
-**Matches everything until you fill in its placeholders.** Left as shipped,
-these alert on normal activity:
+**Ship `Paused`, because they match everything until you fill in their
+placeholders.** Fill them in, then switch them to `Staging`:
 
+* `Claude - Tool Call from Unapproved MCP Server` (every MCP tool call; this
+  High alert also feeds `Agent Off the Rails` and the composite)
 * `Claude - Unapproved Model Used` (every API request)
 * `Claude - Unapproved MCP Server Connected` (every MCP connection)
 * `Claude - Session in Unapproved Repository` (every repository)
@@ -206,10 +209,6 @@ these alert on normal activity:
 **Never fires until configured:**
 
 * `Claude - SSRF or Injection Marker in Tool Arguments` (no default markers)
-* `Claude - Tool Call from Unapproved MCP Server` ships `Paused`. Fill in its
-  approved MCP server UUIDs before switching it to `Staging` or `Active`; left
-  unfilled it matches every MCP tool call, and because this High alert feeds
-  `Agent Off the Rails` and the composite, it would inflate both correlations.
 * All four correlation rules, until you set your `_detections` index ID. They
   also need their contributing rules enabled and configured.
 
@@ -256,7 +255,8 @@ Many rules check activity against **your** allowlists: approved models, MCP
 servers, git remotes, domains and so on. There is no universal default for
 these, so the queries ship with **placeholders in angle brackets**, such as
 `<approved-model-1>`. **A rule with an unfilled placeholder will either match
-everything or never match.** Fill these in before you set a rule to `Active`.
+everything or never match.** Rules that would match everything ship `Paused`.
+Fill these in before you switch a rule to `Staging` or `Active`.
 
 Each rule's description also has a **"Values you should supply"** section with
 the exact instructions.

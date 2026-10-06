@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Repeated Calls to Unapproved Domain (Signal)
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 5 times fires. It feeds the composite correlation.
+  * **Ships `Paused`.** **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 5 times fires. It feeds the composite correlation. Switch it to `Staging` or `Active` only after you fill these in.
   * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 

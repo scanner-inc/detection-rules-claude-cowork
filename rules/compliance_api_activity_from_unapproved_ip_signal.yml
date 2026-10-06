@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Compliance API Activity from Unapproved IP (Signal)
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Matches all Compliance API activity until you replace `<approved-ip-1>` and `<approved-ip-2>`** with your egress IPs.
+  * **Ships `Paused`.** **Matches all Compliance API activity until you replace `<approved-ip-1>` and `<approved-ip-2>`** with your egress IPs. Switch it to `Staging` or `Active` only after you fill these in.
   * For lower cost and no overlap with other sources, add `@index=<your Compliance API index>` as the first line of the query.
   * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires. `Claude - Unapproved IP with Risky Tool Use (Correlation)` then never fires either.
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
@@ -18,7 +18,7 @@ description: |-
   This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude - Unapproved IP with Risky Tool Use (Correlation)`.
 
   ## Values you should supply
-  * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match.
+  * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match. Keep the rule `Paused` until then.
 
   ## Notes and limitations
   * Reads the Claude Compliance API activity feed, a separate log source from Claude's OpenTelemetry logs.

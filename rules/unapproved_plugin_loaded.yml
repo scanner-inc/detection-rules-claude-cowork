@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Unapproved Plugin Loaded
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Matches every plugin load until you replace the `<approved-plugin-N>` / `<approved-marketplace-N>` pairs.**
+  * **Ships `Paused`.** **Matches every plugin load until you replace the `<approved-plugin-N>` / `<approved-marketplace-N>` pairs.** Switch it to `Staging` or `Active` only after you fill these in.
   * If your pipeline redacts `plugin.name` or `marketplace.name`, this rule cannot tell plugins apart.
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
@@ -19,7 +19,7 @@ description: |-
   3. If unapproved, disable it and review what it could access.
 
   ## Values you should supply
-  * Approved plugins. Each `not (... and ...)` line is one approved plugin/marketplace pair; replace the `<approved-plugin-N>`/`<approved-marketplace-N>` placeholders and add a line per plugin. Until you do, every plugin load will match.
+  * Approved plugins. Each `not (... and ...)` line is one approved plugin/marketplace pair; replace the `<approved-plugin-N>`/`<approved-marketplace-N>` placeholders and add a line per plugin. Until you do, every plugin load will match. Keep the rule `Paused` until then.
 
   ## Notes and limitations
   * Reads `log.attributes.plugin.name, log.attributes.marketplace.name`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.

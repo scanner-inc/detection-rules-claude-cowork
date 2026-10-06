@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Unapproved Model Used
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Matches every API request until you replace `<approved-model-1>` and `<approved-model-2>`** with your approved model IDs. Left as shipped, it alerts for every active session.
+  * **Ships `Paused`.** **Matches every API request until you replace `<approved-model-1>` and `<approved-model-2>`** with your approved model IDs. Left as shipped, it alerts for every active session. Switch it to `Staging` or `Active` only after you fill these in.
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
   ## Goal
@@ -18,7 +18,7 @@ description: |-
   3. If not approved, follow your governance process with the user.
 
   ## Values you should supply
-  * Approved models. Replace `<approved-model-1>` and `<approved-model-2>` with your approved model IDs. Revisit when new models are released. Until you do, every request will match.
+  * Approved models. Replace `<approved-model-1>` and `<approved-model-2>` with your approved model IDs. Revisit when new models are released. Until you do, every request will match. Keep the rule `Paused` until then.
 severity: Medium
 query_text: |-
   log.attributes.event.name:api_request

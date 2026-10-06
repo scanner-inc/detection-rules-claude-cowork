@@ -1,9 +1,9 @@
 # schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
 name: Claude - Repeated Calls to Unapproved Domain
-enabled: Staging
+enabled: Paused
 description: |-
   ## Before you enable
-  * **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 10 times fires, including package registries and GitHub.
+  * **Ships `Paused`.** **Every URL counts as unapproved until you replace `<approved-domain-1>|<approved-domain-2>`**, so any session that calls the same host 10 times fires, including package registries and GitHub. Switch it to `Staging` or `Active` only after you fill these in.
   * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
   * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
 
@@ -19,7 +19,7 @@ description: |-
   3. Block the domain if it is not legitimate.
 
   ## Values you should supply
-  * Approved outbound domains. Replace `<approved-domain-1>|<approved-domain-2>` in the regex with your domains (escape dots, for example `github\.com|pypi\.org`). Until you do, every URL will count as unapproved.
+  * Approved outbound domains. Replace `<approved-domain-1>|<approved-domain-2>` in the regex with your domains (escape dots, for example `github\.com|pypi\.org`). Until you do, every URL will count as unapproved. Keep the rule `Paused` until then.
 
   ## Notes and limitations
   * Bash only. WebFetch calls are not covered.
