@@ -10,7 +10,7 @@ description: |-
   Detect Claude writing or editing a file in a location commonly used for persistence or access: SSH keys and `authorized_keys`, shell startup files, git hooks, cron spools, launch agents, systemd units and `/etc`.
 
   ## Strategy
-  Extracts `file_path` (or `notebook_path`) from the `tool_input` of successful Write, Edit and NotebookEdit `tool_result` events and matches it against a path regex. System locations (`/etc`, `/var/spool/cron`, `/usr/lib/cron`, `/lib/systemd/system`) are anchored to the start of the path, so repository folders such as `src/cron_jobs/` or `deploy/systemd/` do not match.
+  Extracts `file_path` (or `notebook_path`) from the `tool_input` of Write, Edit and NotebookEdit `tool_result` events (whether or not the write succeeded; an attempt is worth triage) and matches it against a path regex. System locations (`/etc`, `/var/spool/cron`, `/usr/lib/cron`, `/lib/systemd/system`) are anchored to the start of the path, so repository folders such as `src/cron_jobs/` or `deploy/systemd/` do not match.
 
   ## Triage and response
   1. Read the path and, if logged, the written content in `tool_input`.

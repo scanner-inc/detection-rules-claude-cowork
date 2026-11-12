@@ -111,6 +111,13 @@ tags[*]:correlation.composite_critical
 | where rule_count >= 5
 ```
 
+The correlation reads the first result row of each alert
+(`results_table.rows[0]`), so every contributing rule sets
+`alert_per_row: true` ("Send multiple alerts" in the Scanner UI). Each user then
+gets an alert of their own; without it, all users found in one run share one
+alert and only the first one is counted. Keep this setting on any rule you add
+to a correlation.
+
 ### Why some behaviors have both an alert and a signal
 
 Several behaviors appear twice: once as an alert with a strict threshold, and
@@ -285,8 +292,8 @@ the exact instructions.
 | `Claude - Repeated Calls to Unapproved Domain` | `<approved-domain-1>\|<approved-domain-2>` | Approved outbound domains as a regex (escape dots). Also in the (Signal) sibling |
 | `Claude - Compliance API Activity from Unapproved IP (Signal)` | `<approved-ip-1>`, `<approved-ip-2>` | Office egress, VPN and cloud workstation IPs (literal IPs, no CIDR) |
 | `Claude - Compliance API Accessed by Unapproved Actor` | `<approved-compliance-user-1>`, `<approved-compliance-user-2>` | Emails of people and automation allowed to use the Compliance API |
-| `Claude - Git Push to Unapproved Remote` | `origin`, `upstream` (pre-filled) | Your approved git remote alias names |
-| `Claude - Token Minting with Unapproved Git Push` | Minting regex + `^(origin\|upstream)$` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases |
+| `Claude - Git Push to Unapproved Remote` | `origin`, `upstream` (pre-filled) | Your approved git remote alias names. Don't edit the push regex by hand; run `python3 tools/approved_remotes_regex.py --write <remote> [<remote> ...]`, which also updates the Token Minting rule |
+| `Claude - Token Minting with Unapproved Git Push` | Minting regex + `origin`, `upstream` (pre-filled) | Commands your agents use to mint tokens; approved remote aliases (set with `tools/approved_remotes_regex.py`, as above) |
 | `Claude - Agent Committed to Protected Branch` | `main`, `master` (pre-filled) | Your protected branch names |
 | `Claude - Write to Sensitive or Persistence Path` | Path regex (pre-filled) | Optional: add more persistence or config paths |
 | `Claude - Read Tool Opened Credential File` | Path regex (pre-filled) | Optional: add credential paths, or drop `.env` if reading it is routine (`.env.example` and similar templates are already excluded) |
