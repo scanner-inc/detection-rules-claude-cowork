@@ -26,7 +26,7 @@ RULE_FILES = [
 PREFIX = r"git\s+push(?:\s+-\S+)*\s+"
 NAME_CHAR = r"""[^\s"'\\;&|]"""  # characters allowed in a remote name
 QUOTE = r"""(?:\\?"|')?"""  # optional quote; in the logged command a " appears as \"
-END = r"""(?:\\?"|')?(?:[\s;&|)]|$)"""
+END = r"""(?:\\?"|')?(?:[\s;&|)]|\\[nrt]|$)"""  # \n, \r, \t: whitespace as stored in the JSON-escaped command
 
 
 def _class_excluding(chars, first):
@@ -43,14 +43,14 @@ def not_approved(names):
         node = trie
         for c in name:
             node = node.setdefault(c, {})
-        node["$"] = {}
+        node[None] = {}  # end of an approved name (None, so any character can be in a name)
     alternatives = []
 
     def walk(node, prefix):
-        children = [k for k in node if k != "$"]
+        children = [k for k in node if k is not None]
         # The name leaves the approved names here: next character is not a child.
         alternatives.append(re.escape(prefix) + _class_excluding(children, prefix == "") + NAME_CHAR + "*")
-        if prefix and "$" not in node:
+        if prefix and None not in node:
             alternatives.append(re.escape(prefix))  # a proper prefix such as "orig"
         for child in children:
             walk(node[child], prefix + child)
@@ -96,11 +96,18 @@ def self_test():
         r"git push orig main": True, r"git push origin2 main": True, r"git push upstreams main": True,
         r"git push o main": True, r"git push u main": True, r"git push -u evil main": True,
         r"git push https://github.com/x/y.git HEAD": True, r"git push origin;git push evil": True,
+        r"git push evil\ngit status": True, r"git push origin\ngit status": False,
+        r"git push evil\tmain": True, r"git push origin\tmain": False,
     }
     failed = [c for c, want in cases.items() if bool(rx.search(c)) != want]
     for c in failed:
         print("FAIL:", c)
-    print(f"{len(cases) - len(failed)}/{len(cases)} cases pass")
+    dollar = re.compile(build(["origin$prod"]))
+    for c, want in {r"git push origin$prod main": False, r"git push origin main": True}.items():
+        if bool(dollar.search(c)) != want:
+            failed.append(c)
+            print("FAIL:", c)
+    print(f"{len(cases) + 2 - len(failed)}/{len(cases) + 2} cases pass")
     return not failed
 
 

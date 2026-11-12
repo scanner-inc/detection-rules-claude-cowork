@@ -30,7 +30,7 @@ query_text: |-
   log.attributes.tool_name:Bash
   log.attributes.tool_parameters:("git push" or "git remote")
   | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"full_command":\s*"((?:[^"\\]|\\.)*)"/, 1), coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), ""))
-  | eval is_bad = if(regex.is_match(cmd, /git\s+push(?:\s+-\S+)*\s+(?:\\?"|')?(?:[^\s"'\\;&|ou\-][^\s"'\\;&|]*|o[^\s"'\\;&|r][^\s"'\\;&|]*|o|or[^\s"'\\;&|i][^\s"'\\;&|]*|or|ori[^\s"'\\;&|g][^\s"'\\;&|]*|ori|orig[^\s"'\\;&|i][^\s"'\\;&|]*|orig|origi[^\s"'\\;&|n][^\s"'\\;&|]*|origi|origin[^\s"'\\;&|][^\s"'\\;&|]*|u[^\s"'\\;&|p][^\s"'\\;&|]*|u|up[^\s"'\\;&|s][^\s"'\\;&|]*|up|ups[^\s"'\\;&|t][^\s"'\\;&|]*|ups|upst[^\s"'\\;&|r][^\s"'\\;&|]*|upst|upstr[^\s"'\\;&|e][^\s"'\\;&|]*|upstr|upstre[^\s"'\\;&|a][^\s"'\\;&|]*|upstre|upstrea[^\s"'\\;&|m][^\s"'\\;&|]*|upstrea|upstream[^\s"'\\;&|][^\s"'\\;&|]*)(?:\\?"|')?(?:[\s;&|)]|$)/) or regex.is_match(cmd, /git\s+remote\s+(add|set-url)\s/), 1, 0)
+  | eval is_bad = if(regex.is_match(cmd, /git\s+push(?:\s+-\S+)*\s+(?:\\?"|')?(?:[^\s"'\\;&|ou\-][^\s"'\\;&|]*|o[^\s"'\\;&|r][^\s"'\\;&|]*|o|or[^\s"'\\;&|i][^\s"'\\;&|]*|or|ori[^\s"'\\;&|g][^\s"'\\;&|]*|ori|orig[^\s"'\\;&|i][^\s"'\\;&|]*|orig|origi[^\s"'\\;&|n][^\s"'\\;&|]*|origi|origin[^\s"'\\;&|][^\s"'\\;&|]*|u[^\s"'\\;&|p][^\s"'\\;&|]*|u|up[^\s"'\\;&|s][^\s"'\\;&|]*|up|ups[^\s"'\\;&|t][^\s"'\\;&|]*|ups|upst[^\s"'\\;&|r][^\s"'\\;&|]*|upst|upstr[^\s"'\\;&|e][^\s"'\\;&|]*|upstr|upstre[^\s"'\\;&|a][^\s"'\\;&|]*|upstre|upstrea[^\s"'\\;&|m][^\s"'\\;&|]*|upstrea|upstream[^\s"'\\;&|][^\s"'\\;&|]*)(?:\\?"|')?(?:[\s;&|)]|\\[nrt]|$)/) or regex.is_match(cmd, /git\s+remote\s+(add|set-url)\s/), 1, 0)
   | where is_bad = 1
   | stats count() as git_pushes by log.attributes.user.id, log.attributes.session.id
 time_range_s: 3600
@@ -106,3 +106,15 @@ tests:
     dataset_inline: |
       {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push origin2 main\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
     expected_detection_result: true
+  - name: "Unapproved remote followed by a newline or tab fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push evil\\ngit status\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push evil\\tmain\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Approved remote followed by a newline or tab does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push origin\\ngit status\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"git\",\"full_command\":\"git push upstream\\tmain\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
