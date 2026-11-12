@@ -18,6 +18,7 @@ query_text: |-
   | rename(log.attributes.user.id as entity_user_id)
 time_range_s: 3600
 run_frequency_s: 3600
+alert_per_row: true
 tags:
 - source.claude
 - product.claude_cowork

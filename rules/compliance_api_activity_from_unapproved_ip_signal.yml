@@ -39,6 +39,7 @@ query_text: |-
   | rename(actor.email_address as entity_email)
 time_range_s: 3600
 run_frequency_s: 3600
+alert_per_row: true
 tags:
 - source.claude
 - product.claude_cowork
