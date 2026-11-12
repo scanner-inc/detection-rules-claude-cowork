@@ -1,0 +1,60 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Same Bash Command Repeated in Session (Signal)
+enabled: Staging
+description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
+  ## Goal
+  Signal version of the repeated Bash command rule.
+
+  ## Strategy
+  Same query as the alert version, with the threshold lowered to 5 repeats.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude - Same Bash Command Repeated in Session`, which uses a stricter threshold.
+severity: Informational
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  | eval norm_cmd = coalesce(regex.extract(log.attributes.tool_parameters, /"full_command":\s*"([^\s"]+(?:\s+[^\s"]+)?)/, 1), log.attributes.tool_parameters)
+  | stats count() as reps by norm_cmd, log.attributes.session.id, log.attributes.user.id
+  | where reps >= 5
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- signal
+- correlation.composite_critical
+tests:
+  - name: "5 'kubectl create' commands with different arguments fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-0 --image=busybox\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-1 --image=busybox\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-2 --image=busybox\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-3 --image=busybox\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-4 --image=busybox\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "4 repeats does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-0\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-1\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-2\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl create pod worker-3\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Commands that share only the program name do not group together"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl get pods\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl describe pod x\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl logs x\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl apply -f a.yaml\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"kubectl\",\"full_command\":\"kubectl get pods\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

@@ -1,0 +1,67 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Repeated Tool Execution Failures
+enabled: Staging
+description: |-
+  ## Goal
+  Detect the same tool failing repeatedly within one session, which can indicate an agent retrying something it is not permitted to do or probing an environment.
+
+  ## Strategy
+  Counts `tool_result` events with `success` = "false" (a string field) per tool, session and user. Fires at 5 or more failures of the same tool in the window.
+
+  ## Triage and response
+  1. Look at the failing tool's `tool_parameters` to see what was being attempted.
+  2. Distinguish broken tooling (the same benign call failing) from repeated attempts against restricted resources.
+  3. If attempts look deliberate, review the session's prompts and other activity by the user.
+
+  ## Notes and limitations
+  * The 5-failure threshold does not scale with session length. Tune it per environment.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_result
+  log.attributes.success:"false"
+  | stats count() as failures by log.attributes.tool_name, log.attributes.session.id, log.attributes.user.id
+  | where failures >= 5
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- correlation.agent_off_rails
+- tactics.ta0007.discovery
+tests:
+  - name: "5 failures of the same tool in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:56:40.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Read","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "4 failures plus successes does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:20.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:19.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:18.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:17.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:16.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"true","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "5 failures split across two tools does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Read","success":"false","duration_ms":"42"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

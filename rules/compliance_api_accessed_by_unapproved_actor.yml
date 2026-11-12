@@ -1,0 +1,61 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Compliance API Accessed by Unapproved Actor
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every Compliance API access. To turn it on:
+
+  1. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of the people and automation allowed to use the Compliance API. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
+  * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires.
+
+  ## Goal
+  Detect the Claude Compliance API being used by someone outside the set of people and service identities expected to use it. The Compliance API can export session transcripts and other sensitive data.
+
+  ## Strategy
+  Matches `compliance_api_accessed` activity (logged for every Compliance API request) where the actor is not on the approved list.
+
+  ## Triage and response
+  1. Identify the actor and whether they have a reason to use the Compliance API.
+  2. Check what else the actor did around the same time.
+  3. If unauthorized, revoke the API key used.
+
+  ## Values you should supply
+  * Approved Compliance API users. Replace `<approved-compliance-user-1>` and `<approved-compliance-user-2>` with the emails of your security/compliance staff and audit automation. Until you do, every access will match. Keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * The activity feed does not record which endpoint was called, so this flags any Compliance API access by an unapproved actor, not specifically transcript exports.
+severity: High
+query_text: |-
+  type:compliance_api_accessed
+  not actor.email_address:("<approved-compliance-user-1>" or "<approved-compliance-user-2>")
+  | stats count() as api_pulls by actor.email_address, actor.user_id
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- tactics.ta0009.collection
+- techniques.t1213.data_from_information_repositories
+tests:
+  - name: "Compliance API access by an unapproved actor fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"compliance_api_accessed","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"mallory@example.com","user_id":"cu-1","ip_address":"203.0.113.10"}}
+    expected_detection_result: true
+  - name: "Compliance API access by an approved actor does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"compliance_api_accessed","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"<approved-compliance-user-1>","user_id":"cu-1","ip_address":"203.0.113.10"}}
+    expected_detection_result: false
+  - name: "Other activity by an unapproved actor does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"claude_chat_created","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"mallory@example.com","user_id":"cu-1","ip_address":"203.0.113.10"}}
+    expected_detection_result: false

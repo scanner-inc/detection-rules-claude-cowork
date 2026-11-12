@@ -1,0 +1,74 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Multi-Stage Agent Compromise (Critical Correlation)
+enabled: Staging
+description: |-
+  ## Before you enable
+  * **Never fires until you replace `00000000-0000-0000-0000-000000000000`** in the first line of the query with your `_detections` index ID (see "Values you should supply").
+  * It only fires if its contributing rules are enabled. `Claude - Tool Call from Unapproved MCP Server` and `Claude - Repeated Calls to Unapproved Domain (Signal)` ship `Paused`; switch them on once their allowlists are filled in.
+
+  ## Goal
+  Detect one identity accumulating many different suspicious signals within a day. Each signal alone is weak or has an innocent explanation; five or more together describe an agent going through the stages of an intrusion (no human review, reconnaissance, credential access, persistence, command and control, exfiltration). Modeled on the July 2026 Hugging Face autonomous agent intrusion.
+
+  ## Strategy
+  Queries `_detections` for alerts tagged `correlation.composite_critical` and fires when 5 or more distinct rules hit the same `entity_user_id` in a rolling 24 hours. Checked hourly, so a multi-day campaign is caught within hours. Contributors are nine signal rules (Informational, no sinks) and four standalone alerts: `Claude - Tool Call from Unapproved MCP Server`, `Claude - Credential File or Cloud Metadata Access`, `Claude - Token Minting with Unapproved Git Push` and `Claude - Repeated Escalation to bypassPermissions`. Where a rule has a signal sibling, only the signal carries the tag, so one behavior is never counted twice.
+
+  ## Triage and response
+  1. List the contributing alerts for the user from `_detections` and put them on a timeline.
+  2. Treat as a likely compromise: suspend the user's sessions and revoke their tokens while investigating.
+  3. Work through the stages: what credentials were touched, what was pushed or sent out, what persists.
+
+  ## Values you should supply
+  * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
+  * Inherits every placeholder in its contributing rules; fill those in first.
+
+  ## Notes and limitations
+  * There is no separate check for sustained activity with no idle gaps; `Claude - High Tool Call Volume in Session (Signal)` stands in for it.
+  * Pivots on `user.id`.
+  * The 5-rule threshold is a starting point. Large legitimate batch sessions can trip a few signals.
+  * To add a contributor, tag it `correlation.composite_critical` and end its query with `rename(log.attributes.user.id as entity_user_id)`.
+severity: Critical
+query_text: |-
+  @index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
+  tags[*]:correlation.composite_critical
+  | stats countdistinct(name) as rule_count by results_table.rows[0].entity_user_id
+  | where rule_count >= 5
+time_range_s: 86400
+run_frequency_s: 3600
+dedup_window_s: 86400
+event_sink_keys:
+- critical_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- correlation
+- tactics.ta0001.initial_access
+- tactics.ta0006.credential_access
+- tactics.ta0010.exfiltration
+tests:
+  - name: "Five different contributing rules for one user within a day fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T08:30:00.000Z","name":"Claude - High Tool Call Volume in Session (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T07:30:00.000Z","end":"2026-09-24T08:30:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: true
+  - name: "Four different contributing rules does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+    expected_detection_result: false
+  - name: "Five contributing rules spread over two users does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:50:00.000Z","name":"Claude - Risky Bash Command Proposed (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:50:00.000Z","end":"2026-09-24T11:50:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+      {"timestamp":"2026-09-24T11:00:00.000Z","name":"Claude - Credential File or Cloud Metadata Access","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T10:00:00.000Z","end":"2026-09-24T11:00:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T10:10:00.000Z","name":"Claude - Token Minting with Unapproved Git Push","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T09:10:00.000Z","end":"2026-09-24T10:10:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+      {"timestamp":"2026-09-24T09:20:00.000Z","name":"Claude - Repeated Escalation to bypassPermissions","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T08:20:00.000Z","end":"2026-09-24T09:20:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-7f3a1c"}]}}
+      {"timestamp":"2026-09-24T08:30:00.000Z","name":"Claude - High Tool Call Volume in Session (Signal)","severity":"Informational","tags":["correlation.composite_critical"],"detected_in_time_range":{"start":"2026-09-24T07:30:00.000Z","end":"2026-09-24T08:30:00.000Z"},"results_table":{"rows":[{"entity_user_id":"u-29be44"}]}}
+    expected_detection_result: false

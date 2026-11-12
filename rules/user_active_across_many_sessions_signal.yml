@@ -1,0 +1,51 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - User Active Across Many Sessions (Signal)
+enabled: Staging
+description: |-
+  ## Goal
+  Signal version of the many-sessions rule.
+
+  ## Strategy
+  Same query as the alert version, with the threshold lowered to 3 distinct sessions.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed the `Claude - Multi-Stage Agent Compromise (Critical Correlation)` rule. Its standalone alert sibling is `Claude - User Active Across Many Sessions`, which uses a stricter threshold.
+severity: Informational
+query_text: |-
+  log.attributes.event.name:*
+  | stats countdistinct(log.attributes.session.id) as distinct_sessions, countdistinct(log.attributes.terminal.type) as distinct_terminals by log.attributes.user.id
+  | where distinct_sessions >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- signal
+- correlation.composite_critical
+tests:
+  - name: "One user in 3 sessions fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-0","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-2","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "One user in 2 sessions does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-0","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-0","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-0","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:55.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "3 sessions spread over different users does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-0","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-29be44","user.email":"bob@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-c41d90","user.email":"carol@example.com","session.id":"sess-2","terminal.type":"vscode","organization.id":"org-example","prompt_length":"20"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

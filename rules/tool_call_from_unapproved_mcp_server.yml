@@ -1,0 +1,65 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Tool Call from Unapproved MCP Server
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert (High) on every MCP tool call and feed each one into `Claude - Agent Off the Rails (Correlation)` and the composite correlation. To turn it on:
+
+  1. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved MCP servers (not their display names). Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  ## Goal
+  Detect tool calls routed through an MCP server that is not on your approved list (a shadow MCP server).
+
+  ## Strategy
+  Matches `tool_decision` events from MCP tools (`tool_source` = `sdk_host_builtin_mcp`) whose `tool_parameters` do not contain an approved MCP server ID. Groups by user and session so each session alerts once per window. The rule ships `Paused` so that an unconfigured allowlist cannot flood the correlations.
+
+  ## Triage and response
+  1. Identify the MCP server name and tool from `tool_parameters`.
+  2. Confirm with the user whether they installed or connected this server and where it came from.
+  3. If unapproved, remove the server and review what data its tools could access.
+
+  ## Values you should supply
+  * Approved MCP server IDs. Replace `<approved-mcp-server-uuid-1>` and `<approved-mcp-server-uuid-2>` with the UUIDs of your approved servers (not their display names). Until you do, every MCP tool call will match, so keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * `mcp_server_connection` events carry no server identity, so this rule relies on `tool_decision`.
+  * Substring match against a JSON string, not a parser.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_source:sdk_host_builtin_mcp
+  not log.attributes.tool_parameters:("<approved-mcp-server-uuid-1>" or "<approved-mcp-server-uuid-2>")
+  | stats count() as shadow_mcp_calls by log.attributes.user.id, log.attributes.session.id
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- correlation.agent_off_rails
+- correlation.composite_critical
+- tactics.ta0003.persistence
+- techniques.t1195.supply_chain_compromise
+tests:
+  - name: "Tool call through an MCP server that is not on the approved list fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"mcp__9b1e2c4a-unknown-server__search","tool_source":"sdk_host_builtin_mcp","decision":"accept","source":"config","tool_parameters":"{\"mcp_server_name\":\"9b1e2c4a-unknown-server\",\"mcp_tool_name\":\"search\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Tool call through an approved MCP server does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"mcp__<approved-mcp-server-uuid-1>__search","tool_source":"sdk_host_builtin_mcp","decision":"accept","source":"config","tool_parameters":"{\"mcp_server_name\":\"<approved-mcp-server-uuid-1>\",\"mcp_tool_name\":\"search\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Built-in tool calls do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"ls\",\"full_command\":\"ls -la\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Read","tool_source":"builtin","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

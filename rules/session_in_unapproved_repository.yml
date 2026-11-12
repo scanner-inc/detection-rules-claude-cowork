@@ -1,0 +1,63 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Session in Unapproved Repository
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every repository. To turn it on:
+
+  1. Replace `<approved-org-1>` and `<approved-org-2>` with your GitHub or GitLab organization names. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
+  * Claude Code: needs v2.1.269 or later with `OTEL_METRICS_INCLUDE_REPOSITORY=true`. Without it no repository fields are logged and this rule never fires.
+
+  ## Goal
+  Detect Claude Code being used in a git repository owned by an organization that is not on your approved list, for example a personal or third-party repository on a corporate account.
+
+  ## Strategy
+  Every Claude Code event carries `vcs.owner.name` and `vcs.repository.name` when repository attributes are enabled. Matches events whose owner is not approved, grouped by user, owner and repository. Re-alerts at most once a day per group.
+
+  ## Triage and response
+  1. Identify the repository and whether the user has a business reason to work in it.
+  2. Check whether company code or secrets were copied into it (look for Write, Bash `cp` or `git push` in the same session).
+  3. If it is a cloned third-party repository, check it for a `.mcp.json`, hooks or `CLAUDE.md` instructions that could steer the agent.
+
+  ## Values you should supply
+  * Approved repository owners. Replace `<approved-org-1>` and `<approved-org-2>` with your GitHub/GitLab organization names. To allow single repositories, add `not log.attributes.vcs.repository.name:(...)`. Until you do, every repository will match. Keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * Requires Claude Code v2.1.269 or later with `OTEL_METRICS_INCLUDE_REPOSITORY=true`. Repositories with no `origin` remote have no owner and are not matched.
+severity: Medium
+query_text: |-
+  log.attributes.vcs.owner.name:*
+  not log.attributes.vcs.owner.name:("<approved-org-1>" or "<approved-org-2>")
+  | stats count() as events, countdistinct(log.attributes.session.id) as sessions by log.attributes.user.id, log.attributes.vcs.owner.name, log.attributes.vcs.repository.name
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+dedup_window_s: 86400
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0010.exfiltration
+tests:
+  - name: "Session in a repository owned by an unapproved org fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"someone-personal","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Sessions in approved orgs do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"<approved-org-1>","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40","vcs.owner.name":"<approved-org-2>","vcs.repository.name":"side-project","vcs.provider.name":"github"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Events with no repository owner do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.user_prompt","attributes":{"event.name":"user_prompt","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","prompt_length":"40"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

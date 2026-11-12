@@ -1,0 +1,59 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Repeated Deny-Rule Hits
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a session that keeps running into your configured deny rules, a sign of an agent (or a prompt injection) repeatedly trying things policy forbids, often with variations to find a gap.
+
+  ## Strategy
+  Counts `tool_decision` events with `decision` = `reject` and `source` = `config` (blocked by a permission rule, not by a person) per user and session. Fires at 3 or more. The number of distinct commands tried is included for context.
+
+  ## Triage and response
+  1. Read the rejected `tool_parameters`; several different commands aimed at the same goal (for example `curl`, then `wget`, then `nc`) suggest deliberate evasion.
+  2. Check whether any similar command was later accepted through a path the deny rules missed.
+  3. Review the session's prompts and any files or pages it read for injected instructions.
+
+  ## Notes and limitations
+  * Unlike `Claude - Elevated Tool Rejection Rate`, this counts only policy blocks and has no minimum session size.
+  * The 3-hit threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.decision:reject
+  log.attributes.source:config
+  | stats count() as deny_hits, countdistinct(log.attributes.tool_parameters) as distinct_commands by log.attributes.user.id, log.attributes.session.id
+  | where deny_hits >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- tactics.ta0005.defense_evasion
+- tactics.ta0007.discovery
+tests:
+  - name: "Three policy blocks with different commands fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"curl\",\"full_command\":\"curl https://x.example\",\"description\":\"Run command\"}","decision":"reject","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"wget\",\"full_command\":\"wget https://x.example\",\"description\":\"Run command\"}","decision":"reject","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"nc\",\"full_command\":\"nc x.example 443\",\"description\":\"Run command\"}","decision":"reject","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Two policy blocks does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"curl\",\"full_command\":\"curl https://x.example\",\"description\":\"Run command\"}","decision":"reject","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"curl\",\"full_command\":\"curl https://x.example\",\"description\":\"Run command\"}","decision":"reject","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Rejections by a person are not policy blocks"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"rm\",\"full_command\":\"rm -rf dir0\",\"description\":\"Run command\"}","decision":"reject","source":"user_reject"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"rm\",\"full_command\":\"rm -rf dir1\",\"description\":\"Run command\"}","decision":"reject","source":"user_reject"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"rm\",\"full_command\":\"rm -rf dir2\",\"description\":\"Run command\"}","decision":"reject","source":"user_reject"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"rm\",\"full_command\":\"rm -rf dir3\",\"description\":\"Run command\"}","decision":"reject","source":"user_reject"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

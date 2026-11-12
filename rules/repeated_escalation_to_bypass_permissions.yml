@@ -1,0 +1,62 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Repeated Escalation to bypassPermissions
+enabled: Staging
+description: |-
+  ## Before you enable
+  * If your pipeline redacts `to_mode`, this rule never fires.
+
+  ## Goal
+  Detect a session repeatedly switching into `bypassPermissions`, the permission mode that skips all confirmation prompts.
+
+  ## Strategy
+  Counts `permission_mode_changed` events whose `to_mode` is `bypassPermissions` per session. Fires at 3 or more in the window. A single deliberate switch does not fire.
+
+  ## Triage and response
+  1. Check who switched modes and what ran while in `bypassPermissions`.
+  2. Repeated flapping between modes is a strong sign of an agent or user evading review.
+  3. Stop the session and review its activity.
+
+  ## Notes and limitations
+  * Reads `log.attributes.to_mode`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.
+  * If you cannot keep `to_mode`, a weaker fallback is to count all `permission_mode_changed` events per session (for example 5 or more), which catches flapping but not which mode was reached.
+severity: High
+query_text: |-
+  log.attributes.event.name:permission_mode_changed
+  log.attributes.to_mode:bypassPermissions
+  | stats count() as escalations by log.attributes.user.id, log.attributes.session.id
+  | where escalations >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- correlation.composite_critical
+- tactics.ta0004.privilege_escalation
+- tactics.ta0005.defense_evasion
+- techniques.t1562.001.disable_or_modify_tools
+tests:
+  - name: "Three switches into bypassPermissions in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "A single deliberate switch (plus one more) does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"bypassPermissions"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Switches to other modes do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:00.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:57:30.000Z","log":{"body":"claude_code.permission_mode_changed","attributes":{"event.name":"permission_mode_changed","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","from_mode":"default","to_mode":"acceptEdits"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

@@ -1,0 +1,59 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Bash Run with Sandbox Disabled
+enabled: Staging
+description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
+  ## Goal
+  Detect Claude Code running a shell command with `dangerouslyDisableSandbox` set, which runs it outside the Bash sandbox's filesystem and network restrictions.
+
+  ## Strategy
+  Matches Bash `tool_decision` events whose `tool_parameters` contain `"dangerouslyDisableSandbox":true`, grouped by user, session and decision. Uses `tool_decision` so attempts that were rejected are also reported.
+
+  ## Triage and response
+  1. Read the command and whether it was accepted (`decision`).
+  2. Check whether the command needed to leave the sandbox (for example a tool that fails inside it) or was using the flag to reach the network or files the sandbox blocks.
+  3. If sandbox escapes are not expected, set `allowUnsandboxedCommands` to false in managed settings.
+
+  ## Notes and limitations
+  * In Claude Code, `tool_input` and `tool_parameters` are only logged when `OTEL_LOG_TOOL_DETAILS=1` is set. Without it this rule cannot fire.
+  * Only meaningful where the Bash sandbox is enabled.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:Bash
+  log.attributes.tool_parameters:dangerouslyDisableSandbox
+  | eval cmd = coalesce(regex.extract(log.attributes.tool_parameters, /^([\s\S]*)$/, 1), "")
+  | eval is_unsandboxed = if(regex.is_match(cmd, /"dangerouslyDisableSandbox":\s*true/), 1, 0)
+  | where is_unsandboxed = 1
+  | stats count() as unsandboxed_commands by log.attributes.user.id, log.attributes.session.id, log.attributes.decision
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0005.defense_evasion
+- techniques.t1562.001.disable_or_modify_tools
+tests:
+  - name: "Command run with the sandbox disabled fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"npm\",\"full_command\":\"npm install\",\"description\":\"Run command\",\"dangerouslyDisableSandbox\":true}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Flag explicitly set to false does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"npm\",\"full_command\":\"npm install\",\"description\":\"Run command\",\"dangerouslyDisableSandbox\":false}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Ordinary sandboxed commands do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"npm\",\"full_command\":\"npm test\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"ls\",\"full_command\":\"ls\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

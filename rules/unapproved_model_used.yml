@@ -1,0 +1,57 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Unapproved Model Used
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every API request. To turn it on:
+
+  1. Replace `<approved-model-1>` and `<approved-model-2>` with your approved Claude model IDs. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  ## Goal
+  Detect API requests against a model that is not on your organization's approved list.
+
+  ## Strategy
+  Matches `api_request` events whose `model` is not in the approved list, grouped by user, session and model. Any single request counts. Checked every 5 minutes, and re-alerts at most hourly per group.
+
+  ## Triage and response
+  1. Confirm which model was used and by whom.
+  2. Check whether the model is new and simply missing from your approved list.
+  3. If not approved, follow your governance process with the user.
+
+  ## Values you should supply
+  * Approved models. Replace `<approved-model-1>` and `<approved-model-2>` with your approved model IDs. Revisit when new models are released. Until you do, every request will match. Keep the rule `Paused` until then.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_request
+  not log.attributes.model:("<approved-model-1>" or "<approved-model-2>")
+  | stats count() as requests by log.attributes.user.id, log.attributes.session.id, log.attributes.model
+time_range_s: 300
+run_frequency_s: 300
+dedup_window_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- tactics.ta0005.defense_evasion
+tests:
+  - name: "Request to a model not on the approved list fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"claude-unlisted-model","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Requests to approved models do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"<approved-model-1>","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"<approved-model-2>","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Request older than the 5-minute window does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:45:00.000Z","log":{"body":"claude_code.api_request","attributes":{"event.name":"api_request","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","model":"claude-unlisted-model","cost_usd":"0.01","input_tokens":"100","output_tokens":"50"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

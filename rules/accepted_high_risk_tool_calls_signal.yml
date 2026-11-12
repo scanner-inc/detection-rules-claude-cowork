@@ -1,0 +1,49 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Accepted High-Risk Tool Calls (Signal)
+enabled: Staging
+description: |-
+  ## Before you enable
+  * If your pipeline redacts `user.email`, the two Compliance API correlations cannot match this signal to a person, so they never fire.
+
+  ## Goal
+  Signal: a user had high-risk tool calls accepted during the window.
+
+  ## Strategy
+  Counts accepted high-risk `tool_decision` events per user, renamed to `entity_email` so the Compliance API correlation rules can match it.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed both `Claude - Unapproved IP with Risky Tool Use (Correlation)` and `Claude - Role Change with Risky Tool Use (Correlation)`.
+
+  ## Values you should supply
+  * The high-risk tool list (`Bash`, `Write`, `Edit`, `NotebookEdit`).
+
+  ## Notes and limitations
+  * Reads `log.attributes.user.email`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.
+severity: Informational
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_name:(Bash or Write or Edit or NotebookEdit)
+  log.attributes.decision:accept
+  | stats count() as risky_calls by log.attributes.user.id, log.attributes.user.email
+  | rename(log.attributes.user.email as entity_email)
+time_range_s: 3600
+run_frequency_s: 3600
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- signal
+- correlation.new_ip_risky_tool
+- correlation.role_change_risky_tool
+tests:
+  - name: "Accepted Bash call fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"terraform\",\"full_command\":\"terraform apply -auto-approve\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Rejected high-risk calls and accepted reads do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"rm\",\"full_command\":\"rm -rf build\",\"description\":\"Run command\"}","decision":"reject","source":"user_reject"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Read","tool_source":"builtin","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

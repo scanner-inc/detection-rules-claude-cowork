@@ -1,0 +1,53 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - SSRF or Injection Marker in Tool Arguments
+enabled: Staging
+description: |-
+  ## Before you enable
+  * **Never fires until you replace `<marker-1>` and `<marker-2>`** with the strings you want to catch. There is no default list.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+  * The inline tests use the shipped placeholder values. When you replace them, update the test events too.
+
+  ## Goal
+  Detect tool calls whose arguments contain known SSRF or injection payload markers, across any tool.
+
+  ## Strategy
+  Matches `tool_decision` events whose `tool_parameters` contain one of your marker strings. Not limited to Bash, since payloads can target any tool (WebFetch, MCP database tools and so on). Uses `tool_decision` so rejected attempts are also caught.
+
+  ## Triage and response
+  1. Read the full tool arguments and identify the target of the payload.
+  2. Check whether the call was accepted and what the matching `tool_result` returned.
+  3. Review the prompts that led to the call for signs of prompt injection.
+
+  ## Values you should supply
+  * SSRF/injection marker strings. Replace `<marker-1>` and `<marker-2>` with the patterns you want to catch. There is no default list; this rule cannot fire until you add values.
+
+  ## Notes and limitations
+  * Substring match against a JSON string, not a parser.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_decision
+  log.attributes.tool_parameters:("<marker-1>" or "<marker-2>")
+  | stats count() as hits by log.attributes.user.id, log.attributes.session.id
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- tactics.ta0001.initial_access
+- techniques.t1190.exploit_public_facing_application
+tests:
+  - name: "Tool arguments containing a configured marker fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"WebFetch","tool_source":"builtin","decision":"accept","source":"config","tool_parameters":"{\"url\":\"http://internal.example/?q=<marker-1>\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Ordinary tool arguments do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"WebFetch","tool_source":"builtin","decision":"accept","source":"config","tool_parameters":"{\"url\":\"https://docs.example.com/guide\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"ls\",\"full_command\":\"ls\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

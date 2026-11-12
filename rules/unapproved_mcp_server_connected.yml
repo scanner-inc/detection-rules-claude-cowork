@@ -1,0 +1,72 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Unapproved MCP Server Connected
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every MCP server connection. To turn it on:
+
+  1. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names of your approved MCP servers, as they appear in `server_name`. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1` so MCP server names are logged (see the README's telemetry settings).
+
+  ## Goal
+  Detect Claude Code connecting to an MCP server that is not on your approved list.
+
+  ## Strategy
+  Matches `mcp_server_connection` events with `status` = `connected` that carry a `server_name` that is not approved, grouped by user, session, server and transport.
+
+  ## Triage and response
+  1. Identify the server, its transport (`stdio`, `http`, `sse`) and scope (`server_scope`), and whether it came from a plugin (`is_plugin`).
+  2. Ask the user where the server came from; project-scoped servers can arrive with a cloned repository's `.mcp.json`.
+  3. If unapproved, remove it and review what its tools could reach.
+
+  ## Values you should supply
+  * Approved MCP server names. Replace `<approved-mcp-server-1>` and `<approved-mcp-server-2>` with the names as they appear in `server_name`. Until you do, every connection will match. Keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * Claude Code only. Cowork's `mcp_server_connection` events carry no server name, so the query requires `server_name` and ignores them; for Cowork use `Claude - Tool Call from Unapproved MCP Server`.
+  * Server names are chosen by whoever configures the server, so an attacker can reuse an approved name. Pair with `Claude - Unapproved Plugin Loaded`.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:mcp_server_connection
+  log.attributes.status:connected
+  log.attributes.server_name:*
+  not log.attributes.server_name:("<approved-mcp-server-1>" or "<approved-mcp-server-2>")
+  | stats count() as connections by log.attributes.user.id, log.attributes.session.id, log.attributes.server_name, log.attributes.transport_type, log.attributes.server_scope
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 86400
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0003.persistence
+- techniques.t1195.supply_chain_compromise
+tests:
+  - name: "Connecting to an unapproved MCP server fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"shadow-tools","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Connecting to approved MCP servers does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"<approved-mcp-server-1>","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","server_name":"<approved-mcp-server-2>","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Disconnect events do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"disconnected","server_name":"shadow-tools","transport_type":"stdio","server_scope":"project","is_plugin":"false","duration_ms":"120"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Cowork connection events without a server name do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.mcp_server_connection","attributes":{"event.name":"mcp_server_connection","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status":"connected","transport_type":"http","server_scope":"dynamic","duration_ms":"120"}},"resource":{"attributes":{"service.name":"cowork"}}}
+    expected_detection_result: false

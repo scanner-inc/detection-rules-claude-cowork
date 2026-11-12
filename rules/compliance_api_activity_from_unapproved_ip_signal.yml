@@ -1,0 +1,73 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Compliance API Activity from Unapproved IP (Signal)
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would count all Compliance API activity as coming from an unapproved IP and feed it into `Claude - Unapproved IP with Risky Tool Use (Correlation)`. To turn it on:
+
+  1. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs (individual IPs; CIDR ranges are not supported). Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
+  * For lower cost and no overlap with other sources, add `@index=<your Compliance API index>` as the first line of the query.
+  * Needs the Claude Compliance API activity feed ingested. Without it, this rule never fires. `Claude - Unapproved IP with Risky Tool Use (Correlation)` then never fires either.
+
+  ## Goal
+  Signal: Claude activity from an IP address outside your approved ranges, as recorded by the Claude Compliance API activity feed.
+
+  ## Strategy
+  Matches Compliance API activity where `actor.ip_address` is not an approved IP, grouped by actor. Events are selected by fields that appear together in the Compliance API activity feed (`type`, `actor.type`, `actor.email_address`, `actor.ip_address`), so other sources that only share an `actor.email_address` field are not picked up, and activity with no IP address is ignored. The grouping column is renamed to `entity_email` so the correlation rule can match it with the tool-use signal.
+
+  ## Signal
+  This is a **signal**, not an alert. It has Informational severity and no event sinks, so it never pages anyone by itself. It exists to feed `Claude - Unapproved IP with Risky Tool Use (Correlation)`.
+
+  ## Values you should supply
+  * Approved corporate IPs. Replace `<approved-ip-1>` and `<approved-ip-2>` with your office egress, VPN and cloud workstation IPs. CIDR ranges are not supported here; list individual IPs. Until you do, all activity will match. Keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * Reads the Claude Compliance API activity feed, a separate log source from Claude's OpenTelemetry logs.
+severity: Informational
+query_text: |-
+  type:*
+  actor.type:*
+  actor.email_address:*
+  actor.ip_address:*
+  not actor.ip_address:("<approved-ip-1>" or "<approved-ip-2>")
+  | stats count() as events by actor.email_address, actor.user_id, actor.ip_address
+  | rename(actor.email_address as entity_email)
+time_range_s: 3600
+run_frequency_s: 3600
+tags:
+- source.claude
+- product.claude_cowork
+- signal
+- correlation.new_ip_risky_tool
+tests:
+  - name: "Activity from an IP that is not approved fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"claude_chat_created","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"alice@example.com","user_id":"cu-1","ip_address":"198.51.100.77"}}
+    expected_detection_result: true
+  - name: "Activity from approved IPs does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"claude_chat_created","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"alice@example.com","user_id":"cu-1","ip_address":"<approved-ip-1>"}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","id":"act-90","type":"claude_file_uploaded","created_at":"2026-09-24T11:58:30.000Z","actor":{"type":"user_actor","email_address":"alice@example.com","user_id":"cu-1","ip_address":"<approved-ip-2>"}}
+    expected_detection_result: false
+  - name: "Claude telemetry events (no actor.email_address) do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_decision","attributes":{"event.name":"tool_decision","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Bash","tool_source":"builtin","tool_parameters":"{\"bash_command\":\"ls\",\"full_command\":\"ls -la\",\"description\":\"Run command\"}","decision":"accept","source":"config"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Another log source with actor.email_address and actor.ip_address does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","event":"login","actor":{"email_address":"alice@example.com","ip_address":"198.51.100.77"}}
+    expected_detection_result: false
+  - name: "Compliance API activity with no IP address does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","id":"act-60","type":"claude_chat_created","created_at":"2026-09-24T11:59:00.000Z","actor":{"type":"user_actor","email_address":"alice@example.com","user_id":"cu-1"}}
+    expected_detection_result: false

@@ -1,0 +1,75 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Unapproved IP with Risky Tool Use (Correlation)
+enabled: Staging
+description: |-
+  ## Before you enable
+  * **Never fires until you replace `00000000-0000-0000-0000-000000000000`** in the first line of the query with your `_detections` index ID (see "Values you should supply").
+  * It only fires if its contributing rules are enabled. `Claude - Compliance API Activity from Unapproved IP (Signal)` ships `Paused`; switch it on once its approved IP list is filled in.
+  * Needs the Claude Compliance API activity feed ingested.
+
+  ## Goal
+  Detect a user who is active from an unapproved IP and, within two hours, has high-risk tool calls accepted.
+
+  ## Strategy
+  Queries the `_detections` index for alerts tagged `correlation.new_ip_risky_tool` and fires when both signal rules hit the same `entity_email`. No join is needed: each signal writes its alert to `_detections`, and this rule counts distinct rule names per person. Looks back 2 hours and runs hourly, so signals that straddle an hour boundary still pair up; the 2-hour dedup window stops the same pair alerting twice.
+
+  ## Triage and response
+  1. Confirm the IP's owner and location.
+  2. Review the high-risk commands and file changes made in that window.
+  3. If the IP is not the user's, treat the account as compromised: revoke sessions and credentials.
+
+  ## Values you should supply
+  * Your `_detections` index ID. Scanner requires rule files to name an index by ID, and the ID is different in every Scanner tenant. Replace `00000000-0000-0000-0000-000000000000` in the first line of the query with your own: in the Scanner search box, type `@index=_detections` and tab-complete it to get the full `{ ID | "_detections" }` specifier, or run `@index=_detections | head 1 | table(@index_id)`.
+  * Inherits the approved IP list from `Claude - Compliance API Activity from Unapproved IP (Signal)`.
+
+  ## Notes and limitations
+  * Assumes the Compliance API's `actor.email_address` and the Claude telemetry's `user.email` refer to the same person. Check this in your environment.
+  * Both signals must keep their `rename(... as entity_email)` line, or the correlation silently stops matching.
+  * Co-occurrence within two hours, not strict ordering.
+severity: High
+query_text: |-
+  @index={ 00000000-0000-0000-0000-000000000000 | "_detections" }
+  tags[*]:correlation.new_ip_risky_tool
+  | stats countdistinct(name) as rule_count by results_table.rows[0].entity_email
+  | where rule_count >= 2
+time_range_s: 7200
+run_frequency_s: 3600
+dedup_window_s: 7200
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- correlation
+- tactics.ta0001.initial_access
+tests:
+  - name: "Both signals for the same person fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Compliance API Activity from Unapproved IP (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: true
+  - name: "Both signals 70 minutes apart (across an hour boundary) fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Compliance API Activity from Unapproved IP (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T10:49:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T09:49:00.000Z","end":"2026-09-24T10:49:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: true
+  - name: "Both signals more than 2 hours apart do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Compliance API Activity from Unapproved IP (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T09:46:40.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T08:46:40.000Z","end":"2026-09-24T09:46:40.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: false
+  - name: "Only one of the two signals does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+    expected_detection_result: false
+  - name: "The two signals for different people do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","name":"Claude - Compliance API Activity from Unapproved IP (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:59:00.000Z","end":"2026-09-24T11:59:00.000Z"},"results_table":{"rows":[{"entity_email":"alice@example.com"}]}}
+      {"timestamp":"2026-09-24T11:45:00.000Z","name":"Claude - Accepted High-Risk Tool Calls (Signal)","severity":"Informational","tags":["correlation.new_ip_risky_tool"],"detected_in_time_range":{"start":"2026-09-24T10:45:00.000Z","end":"2026-09-24T11:45:00.000Z"},"results_table":{"rows":[{"entity_email":"bob@example.com"}]}}
+    expected_detection_result: false

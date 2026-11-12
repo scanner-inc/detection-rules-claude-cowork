@@ -1,0 +1,64 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Unapproved Plugin Loaded
+enabled: Paused
+description: |-
+  ## Before you enable
+  **This rule ships `Paused`, so it does not run.** Its allowlist ships with placeholder values; switched on as shipped, it would alert on every plugin load. To turn it on:
+
+  1. Replace the `<approved-plugin-N>` / `<approved-marketplace-N>` placeholders with your approved plugin and marketplace names. Each `not (...)` line is one approved pair; add a line for each extra plugin. Use find-and-replace on the whole file, so the inline tests (the `tests:` section) get the same values and `scanner-cli run-tests` keeps passing.
+  2. Change `enabled: Paused` to `enabled: Staging` and push the file to your rules repository.
+  3. Watch the rule's results in `_detections` for a few days and adjust the values if needed.
+  4. When the results look right, change `enabled` to `Active`.
+
+  Also check:
+  * If your pipeline redacts `plugin.name` or `marketplace.name`, this rule cannot tell plugins apart.
+
+  ## Goal
+  Detect a Claude plugin being loaded that is not on your approved list.
+
+  ## Strategy
+  Matches `plugin_loaded` events whose (`plugin.name`, `marketplace.name`) pair is not an approved pair. A same-named plugin from an unapproved marketplace still fires.
+
+  ## Triage and response
+  1. Identify the plugin, its marketplace and how it was enabled (`enabled_via`).
+  2. Check whether it ships hooks or MCP servers (`has_hooks`, `has_mcp`).
+  3. If unapproved, disable it and review what it could access.
+
+  ## Values you should supply
+  * Approved plugins. Each `not (... and ...)` line is one approved plugin/marketplace pair; replace the `<approved-plugin-N>`/`<approved-marketplace-N>` placeholders and add a line per plugin. Until you do, every plugin load will match. Keep the rule `Paused` until then.
+
+  ## Notes and limitations
+  * Reads `log.attributes.plugin.name, log.attributes.marketplace.name`, which might be redacted for privacy reasons; if that happens in your environment, this rule will not fire.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:plugin_loaded
+  not (log.attributes.plugin.name:"<approved-plugin-1>" and log.attributes.marketplace.name:"<approved-marketplace-1>")
+  not (log.attributes.plugin.name:"<approved-plugin-2>" and log.attributes.marketplace.name:"<approved-marketplace-2>")
+  | stats count() as loads by log.attributes.plugin.name, log.attributes.marketplace.name, log.attributes.user.id, log.attributes.session.id
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- tactics.ta0003.persistence
+- techniques.t1195.supply_chain_compromise
+tests:
+  - name: "Unknown plugin from an unknown marketplace fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"quick-helper","marketplace.name":"random-marketplace","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Approved plugin name from an unapproved marketplace fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-1>","marketplace.name":"random-marketplace","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Approved plugin/marketplace pairs do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-1>","marketplace.name":"<approved-marketplace-1>","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:30.000Z","log":{"body":"claude_code.plugin_loaded","attributes":{"event.name":"plugin_loaded","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","plugin.name":"<approved-plugin-2>","marketplace.name":"<approved-marketplace-2>","plugin.version":"1.0.0","enabled_via":"user","has_hooks":"true","has_mcp":"false"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

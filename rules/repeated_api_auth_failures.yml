@@ -1,0 +1,62 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Repeated API Auth Failures (401/403)
+enabled: Staging
+description: |-
+  ## Goal
+  Detect repeated authentication or authorization failures against the Claude API, which can indicate leaked, revoked or misused credentials.
+
+  ## Strategy
+  Counts `api_error` events with `status_code` 401 or 403 per user and session. `status_code` is a string field. Fires at 3 or more.
+
+  ## Triage and response
+  1. Check whether the user's credentials were recently rotated or revoked.
+  2. Look for the same credentials being used from unexpected sessions or terminals.
+  3. If misuse is suspected, revoke the credentials and review the account's recent activity.
+
+  ## Notes and limitations
+  * `api_error` is part of both the Claude Code and Cowork monitoring events. `status_code` is matched as a string, as the Cowork docs describe.
+  * The 3-error threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_error
+  log.attributes.status_code:("401" or "403")
+  | stats count() as errors by log.attributes.user.id, log.attributes.session.id
+  | where errors >= 3
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- correlation.agent_off_rails
+- tactics.ta0006.credential_access
+- techniques.t1078.valid_accounts
+tests:
+  - name: "3 401/403 errors in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"403","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"403","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "2 auth errors plus server errors does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:40.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"500","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:39.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"500","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:38.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"500","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Rate-limit errors are not auth failures"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

@@ -1,0 +1,80 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - Write to Sensitive or Persistence Path
+enabled: Staging
+description: |-
+  ## Before you enable
+  * Works as shipped.
+  * Claude Code: set `OTEL_LOG_TOOL_DETAILS=1`, or this rule never fires on Claude Code events (commands and file paths are not logged without it).
+
+  ## Goal
+  Detect Claude writing or editing a file in a location commonly used for persistence or access: SSH keys and `authorized_keys`, shell startup files, git hooks, cron spools, launch agents, systemd units and `/etc`.
+
+  ## Strategy
+  Extracts `file_path` (or `notebook_path`) from the `tool_input` of successful Write, Edit and NotebookEdit `tool_result` events and matches it against a path regex. System locations (`/etc`, `/var/spool/cron`, `/usr/lib/cron`, `/lib/systemd/system`) are anchored to the start of the path, so repository folders such as `src/cron_jobs/` or `deploy/systemd/` do not match.
+
+  ## Triage and response
+  1. Read the path and, if logged, the written content in `tool_input`.
+  2. For `authorized_keys`, identify the key that was added and remove it if it is not the user's.
+  3. Check what the user asked for in the session's prompts; a persistence write the user did not ask for is a strong sign of prompt injection.
+
+  ## Values you should supply
+  * The path regex. It ships with common Linux and macOS persistence and access locations; add others you care about (for example your own config-management paths).
+
+  ## Notes and limitations
+  * In Claude Code, `tool_input` and `tool_parameters` are only logged when `OTEL_LOG_TOOL_DETAILS=1` is set. Without it this rule cannot fire.
+  * Claude Code's own guardrails block some of these writes (in testing, `.bashrc` and git hook writes were refused). A blocked write produces no `tool_result`, so the rule only sees writes that went through.
+  * File changes made through Bash (`echo >> ~/.bashrc`, `cp`) are not covered.
+severity: High
+query_text: |-
+  log.attributes.event.name:tool_result
+  log.attributes.tool_name:(Write or Edit or NotebookEdit)
+  | eval path = coalesce(regex.extract(log.attributes.tool_input, /"(?:file_path|notebook_path)":\s*"([^"]*)"/, 1), "")
+  | eval is_sensitive = if(regex.is_match(path, /\/\.ssh\/|\/\.(bashrc|bash_profile|bash_login|profile|zshrc|zprofile|zshenv|zlogin)$|\/\.git\/hooks\/|^\/etc\/|^\/var\/spool\/cron\/|^\/usr\/lib\/cron\/|\/LaunchAgents\/|\/LaunchDaemons\/|\/\.config\/autostart\/|\/\.config\/systemd\/user\/|^\/(usr\/)?lib\/systemd\/system\//), 1, 0)
+  | where is_sensitive = 1
+  | stats count() as writes by log.attributes.user.id, log.attributes.session.id, log.attributes.tool_name, path
+  | rename(log.attributes.user.id as entity_user_id)
+time_range_s: 3600
+run_frequency_s: 900
+dedup_window_s: 3600
+event_sink_keys:
+- high_severity_alerts
+tags:
+- source.claude
+- product.claude_code
+- tactics.ta0003.persistence
+- techniques.t1098.004.ssh_authorized_keys
+- techniques.t1546.004.unix_shell_configuration_modification
+tests:
+  - name: "Adding an SSH authorized key fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/home/alice/.ssh/authorized_keys\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Editing a shell startup file fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Edit","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/Users/bob/.zshrc\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Writing a system cron entry fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/etc/cron.d/backup\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Writing a user systemd unit fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/home/alice/.config/systemd/user/agent.service\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "Repository folders named cron or systemd do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/repo/src/cron_jobs/handler.ts\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Edit","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/repo/cronutils/x.go\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:40.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/repo/deploy/systemd/app.service\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
+  - name: "Ordinary source files do not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Edit","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/repo/src/profile.ts\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:50.000Z","log":{"body":"claude_code.tool_result","attributes":{"event.name":"tool_result","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","tool_name":"Write","success":"true","duration_ms":"42","tool_input":"{\"file_path\":\"/repo/app.py\",\"content\":\"x\"}"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false

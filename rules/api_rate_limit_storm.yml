@@ -1,0 +1,67 @@
+# schema: https://scanner.dev/schema/scanner-detection-rule.v1.json
+name: Claude - API Rate Limit Storm (429)
+enabled: Staging
+description: |-
+  ## Goal
+  Detect a burst of rate-limit errors, which can indicate runaway automation or an attempt to drain API budget.
+
+  ## Strategy
+  Counts `api_error` events with `status_code` "429" per user and session. Fires at 10 or more.
+
+  ## Triage and response
+  1. Identify what the session was doing when throttled (tool volume, repeated prompts).
+  2. Check API cost for the session in `api_request` events (`cost_usd`).
+  3. Stop the session if the load is unexpected.
+
+  ## Notes and limitations
+  * `api_error` is part of both the Claude Code and Cowork monitoring events. `status_code` is matched as a string, as the Cowork docs describe.
+  * The 10-error threshold is a starting point.
+severity: Medium
+query_text: |-
+  log.attributes.event.name:api_error
+  log.attributes.status_code:"429"
+  | stats count() as throttles by log.attributes.user.id, log.attributes.session.id
+  | where throttles >= 10
+time_range_s: 3600
+run_frequency_s: 3600
+event_sink_keys:
+- medium_severity_alerts
+tags:
+- source.claude
+- product.claude_cowork
+- product.claude_code
+- tactics.ta0040.impact
+- techniques.t1496.resource_hijacking
+tests:
+  - name: "10 rate-limit errors in one session fires"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:55.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:54.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:53.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:52.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:51.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: true
+  - name: "9 rate-limit errors and some auth errors does not fire"
+    now_timestamp: "2026-09-24T12:00:00.000Z"
+    dataset_inline: |
+      {"timestamp":"2026-09-24T11:59:00.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:59.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:58.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:57.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:56.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:55.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:54.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:53.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:52.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"429","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:40.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:39.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:38.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:37.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+      {"timestamp":"2026-09-24T11:58:36.000Z","log":{"body":"claude_code.api_error","attributes":{"event.name":"api_error","user.id":"u-7f3a1c","user.email":"alice@example.com","session.id":"sess-1","terminal.type":"vscode","organization.id":"org-example","status_code":"401","error":"error","attempt":"1"}},"resource":{"attributes":{"service.name":"claude-code"}}}
+    expected_detection_result: false
